@@ -21,6 +21,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Error_Status int32
+
+const (
+	Error_STATUS_UNSPECIFIED Error_Status = 0
+	Error_DENIED             Error_Status = 1
+	Error_NOT_FOUND          Error_Status = 2
+	Error_UNAVAILABLE        Error_Status = 3
+	Error_INTERNAL           Error_Status = 4
+)
+
+// Enum value maps for Error_Status.
+var (
+	Error_Status_name = map[int32]string{
+		0: "STATUS_UNSPECIFIED",
+		1: "DENIED",
+		2: "NOT_FOUND",
+		3: "UNAVAILABLE",
+		4: "INTERNAL",
+	}
+	Error_Status_value = map[string]int32{
+		"STATUS_UNSPECIFIED": 0,
+		"DENIED":             1,
+		"NOT_FOUND":          2,
+		"UNAVAILABLE":        3,
+		"INTERNAL":           4,
+	}
+)
+
+func (x Error_Status) Enum() *Error_Status {
+	p := new(Error_Status)
+	*p = x
+	return p
+}
+
+func (x Error_Status) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Error_Status) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_peer_v1_peer_proto_enumTypes[0].Descriptor()
+}
+
+func (Error_Status) Type() protoreflect.EnumType {
+	return &file_proto_peer_v1_peer_proto_enumTypes[0]
+}
+
+func (x Error_Status) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Error_Status.Descriptor instead.
+func (Error_Status) EnumDescriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{12, 0}
+}
+
 // Envelope is one control-channel message. Each WebRTC data-channel send carries
 // exactly one Envelope (SCTP preserves message boundaries; no length prefix needed).
 type Envelope struct {
@@ -31,6 +86,14 @@ type Envelope struct {
 	//	*Envelope_Handshake
 	//	*Envelope_Ping
 	//	*Envelope_Pong
+	//	*Envelope_Browse
+	//	*Envelope_Catalog
+	//	*Envelope_GetMetadata
+	//	*Envelope_TitleMeta
+	//	*Envelope_RequestAccess
+	//	*Envelope_AccessGranted
+	//	*Envelope_Ack
+	//	*Envelope_Error
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -107,6 +170,78 @@ func (x *Envelope) GetPong() *Pong {
 	return nil
 }
 
+func (x *Envelope) GetBrowse() *Browse {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Browse); ok {
+			return x.Browse
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetCatalog() *Catalog {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Catalog); ok {
+			return x.Catalog
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetGetMetadata() *GetMetadata {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_GetMetadata); ok {
+			return x.GetMetadata
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetTitleMeta() *TitleMeta {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_TitleMeta); ok {
+			return x.TitleMeta
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetRequestAccess() *RequestAccess {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_RequestAccess); ok {
+			return x.RequestAccess
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetAccessGranted() *AccessGranted {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_AccessGranted); ok {
+			return x.AccessGranted
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetAck() *Ack {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Ack); ok {
+			return x.Ack
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetError() *Error {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Error); ok {
+			return x.Error
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -123,11 +258,59 @@ type Envelope_Pong struct {
 	Pong *Pong `protobuf:"bytes,4,opt,name=pong,proto3,oneof"`
 }
 
+type Envelope_Browse struct {
+	Browse *Browse `protobuf:"bytes,5,opt,name=browse,proto3,oneof"`
+}
+
+type Envelope_Catalog struct {
+	Catalog *Catalog `protobuf:"bytes,6,opt,name=catalog,proto3,oneof"`
+}
+
+type Envelope_GetMetadata struct {
+	GetMetadata *GetMetadata `protobuf:"bytes,7,opt,name=get_metadata,json=getMetadata,proto3,oneof"`
+}
+
+type Envelope_TitleMeta struct {
+	TitleMeta *TitleMeta `protobuf:"bytes,8,opt,name=title_meta,json=titleMeta,proto3,oneof"`
+}
+
+type Envelope_RequestAccess struct {
+	RequestAccess *RequestAccess `protobuf:"bytes,9,opt,name=request_access,json=requestAccess,proto3,oneof"`
+}
+
+type Envelope_AccessGranted struct {
+	AccessGranted *AccessGranted `protobuf:"bytes,10,opt,name=access_granted,json=accessGranted,proto3,oneof"`
+}
+
+type Envelope_Ack struct {
+	Ack *Ack `protobuf:"bytes,11,opt,name=ack,proto3,oneof"`
+}
+
+type Envelope_Error struct {
+	Error *Error `protobuf:"bytes,12,opt,name=error,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
 
 func (*Envelope_Pong) isEnvelope_Body() {}
+
+func (*Envelope_Browse) isEnvelope_Body() {}
+
+func (*Envelope_Catalog) isEnvelope_Body() {}
+
+func (*Envelope_GetMetadata) isEnvelope_Body() {}
+
+func (*Envelope_TitleMeta) isEnvelope_Body() {}
+
+func (*Envelope_RequestAccess) isEnvelope_Body() {}
+
+func (*Envelope_AccessGranted) isEnvelope_Body() {}
+
+func (*Envelope_Ack) isEnvelope_Body() {}
+
+func (*Envelope_Error) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -270,17 +453,511 @@ func (x *Pong) GetNonce() string {
 	return ""
 }
 
+type Browse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Browse) Reset() {
+	*x = Browse{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Browse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Browse) ProtoMessage() {}
+
+func (x *Browse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Browse.ProtoReflect.Descriptor instead.
+func (*Browse) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{4}
+}
+
+type Catalog struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Titles        []*TitleMeta           `protobuf:"bytes,1,rep,name=titles,proto3" json:"titles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Catalog) Reset() {
+	*x = Catalog{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Catalog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Catalog) ProtoMessage() {}
+
+func (x *Catalog) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Catalog.ProtoReflect.Descriptor instead.
+func (*Catalog) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Catalog) GetTitles() []*TitleMeta {
+	if x != nil {
+		return x.Titles
+	}
+	return nil
+}
+
+type GetMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMetadata) Reset() {
+	*x = GetMetadata{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMetadata) ProtoMessage() {}
+
+func (x *GetMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMetadata.ProtoReflect.Descriptor instead.
+func (*GetMetadata) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetMetadata) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+type TitleMeta struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	DisplayTitle  string                 `protobuf:"bytes,2,opt,name=display_title,json=displayTitle,proto3" json:"display_title,omitempty"`
+	DurationMs    int64                  `protobuf:"varint,3,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	Container     string                 `protobuf:"bytes,4,opt,name=container,proto3" json:"container,omitempty"`
+	VideoCodec    string                 `protobuf:"bytes,5,opt,name=video_codec,json=videoCodec,proto3" json:"video_codec,omitempty"`
+	AudioCodecs   []string               `protobuf:"bytes,6,rep,name=audio_codecs,json=audioCodecs,proto3" json:"audio_codecs,omitempty"`
+	Width         int32                  `protobuf:"varint,7,opt,name=width,proto3" json:"width,omitempty"`
+	Height        int32                  `protobuf:"varint,8,opt,name=height,proto3" json:"height,omitempty"`
+	SizeBytes     int64                  `protobuf:"varint,9,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	HlsCompatible bool                   `protobuf:"varint,10,opt,name=hls_compatible,json=hlsCompatible,proto3" json:"hls_compatible,omitempty"`
+	Subtitles     []*SubtitleTrack       `protobuf:"bytes,11,rep,name=subtitles,proto3" json:"subtitles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TitleMeta) Reset() {
+	*x = TitleMeta{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TitleMeta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TitleMeta) ProtoMessage() {}
+
+func (x *TitleMeta) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TitleMeta.ProtoReflect.Descriptor instead.
+func (*TitleMeta) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *TitleMeta) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+func (x *TitleMeta) GetDisplayTitle() string {
+	if x != nil {
+		return x.DisplayTitle
+	}
+	return ""
+}
+
+func (x *TitleMeta) GetDurationMs() int64 {
+	if x != nil {
+		return x.DurationMs
+	}
+	return 0
+}
+
+func (x *TitleMeta) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *TitleMeta) GetVideoCodec() string {
+	if x != nil {
+		return x.VideoCodec
+	}
+	return ""
+}
+
+func (x *TitleMeta) GetAudioCodecs() []string {
+	if x != nil {
+		return x.AudioCodecs
+	}
+	return nil
+}
+
+func (x *TitleMeta) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *TitleMeta) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *TitleMeta) GetSizeBytes() int64 {
+	if x != nil {
+		return x.SizeBytes
+	}
+	return 0
+}
+
+func (x *TitleMeta) GetHlsCompatible() bool {
+	if x != nil {
+		return x.HlsCompatible
+	}
+	return false
+}
+
+func (x *TitleMeta) GetSubtitles() []*SubtitleTrack {
+	if x != nil {
+		return x.Subtitles
+	}
+	return nil
+}
+
+type SubtitleTrack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // "embedded:<index>" or "sidecar:<lang>"
+	Language      string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"` // ISO code or "und"
+	Label         string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
+	Kind          string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"` // "text" | "image"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubtitleTrack) Reset() {
+	*x = SubtitleTrack{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubtitleTrack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubtitleTrack) ProtoMessage() {}
+
+func (x *SubtitleTrack) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubtitleTrack.ProtoReflect.Descriptor instead.
+func (*SubtitleTrack) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SubtitleTrack) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SubtitleTrack) GetLanguage() string {
+	if x != nil {
+		return x.Language
+	}
+	return ""
+}
+
+func (x *SubtitleTrack) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *SubtitleTrack) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+type RequestAccess struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestAccess) Reset() {
+	*x = RequestAccess{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestAccess) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestAccess) ProtoMessage() {}
+
+func (x *RequestAccess) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestAccess.ProtoReflect.Descriptor instead.
+func (*RequestAccess) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RequestAccess) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type AccessGranted struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AccessGranted) Reset() {
+	*x = AccessGranted{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AccessGranted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AccessGranted) ProtoMessage() {}
+
+func (x *AccessGranted) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AccessGranted.ProtoReflect.Descriptor instead.
+func (*AccessGranted) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{10}
+}
+
+type Ack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Ack) Reset() {
+	*x = Ack{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Ack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Ack) ProtoMessage() {}
+
+func (x *Ack) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Ack.ProtoReflect.Descriptor instead.
+func (*Ack) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{11}
+}
+
+type Error struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        Error_Status           `protobuf:"varint,1,opt,name=status,proto3,enum=peer.v1.Error_Status" json:"status,omitempty"`
+	Detail        string                 `protobuf:"bytes,2,opt,name=detail,proto3" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Error) Reset() {
+	*x = Error{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Error) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Error) ProtoMessage() {}
+
+func (x *Error) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Error.ProtoReflect.Descriptor instead.
+func (*Error) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *Error) GetStatus() Error_Status {
+	if x != nil {
+		return x.Status
+	}
+	return Error_STATUS_UNSPECIFIED
+}
+
+func (x *Error) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xaf\x01\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xc4\x04\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x04R\trequestId\x122\n" +
 	"\thandshake\x18\x02 \x01(\v2\x12.peer.v1.HandshakeH\x00R\thandshake\x12#\n" +
 	"\x04ping\x18\x03 \x01(\v2\r.peer.v1.PingH\x00R\x04ping\x12#\n" +
-	"\x04pong\x18\x04 \x01(\v2\r.peer.v1.PongH\x00R\x04pongB\x06\n" +
+	"\x04pong\x18\x04 \x01(\v2\r.peer.v1.PongH\x00R\x04pong\x12)\n" +
+	"\x06browse\x18\x05 \x01(\v2\x0f.peer.v1.BrowseH\x00R\x06browse\x12,\n" +
+	"\acatalog\x18\x06 \x01(\v2\x10.peer.v1.CatalogH\x00R\acatalog\x129\n" +
+	"\fget_metadata\x18\a \x01(\v2\x14.peer.v1.GetMetadataH\x00R\vgetMetadata\x123\n" +
+	"\n" +
+	"title_meta\x18\b \x01(\v2\x12.peer.v1.TitleMetaH\x00R\ttitleMeta\x12?\n" +
+	"\x0erequest_access\x18\t \x01(\v2\x16.peer.v1.RequestAccessH\x00R\rrequestAccess\x12?\n" +
+	"\x0eaccess_granted\x18\n" +
+	" \x01(\v2\x16.peer.v1.AccessGrantedH\x00R\raccessGranted\x12 \n" +
+	"\x03ack\x18\v \x01(\v2\f.peer.v1.AckH\x00R\x03ack\x12&\n" +
+	"\x05error\x18\f \x01(\v2\x0e.peer.v1.ErrorH\x00R\x05errorB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -288,7 +965,49 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x04Ping\x12\x14\n" +
 	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\x1c\n" +
 	"\x04Pong\x12\x14\n" +
-	"\x05nonce\x18\x01 \x01(\tR\x05nonceB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\b\n" +
+	"\x06Browse\"5\n" +
+	"\aCatalog\x12*\n" +
+	"\x06titles\x18\x01 \x03(\v2\x12.peer.v1.TitleMetaR\x06titles\",\n" +
+	"\vGetMetadata\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\"\xfc\x02\n" +
+	"\tTitleMeta\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\x12#\n" +
+	"\rdisplay_title\x18\x02 \x01(\tR\fdisplayTitle\x12\x1f\n" +
+	"\vduration_ms\x18\x03 \x01(\x03R\n" +
+	"durationMs\x12\x1c\n" +
+	"\tcontainer\x18\x04 \x01(\tR\tcontainer\x12\x1f\n" +
+	"\vvideo_codec\x18\x05 \x01(\tR\n" +
+	"videoCodec\x12!\n" +
+	"\faudio_codecs\x18\x06 \x03(\tR\vaudioCodecs\x12\x14\n" +
+	"\x05width\x18\a \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\b \x01(\x05R\x06height\x12\x1d\n" +
+	"\n" +
+	"size_bytes\x18\t \x01(\x03R\tsizeBytes\x12%\n" +
+	"\x0ehls_compatible\x18\n" +
+	" \x01(\bR\rhlsCompatible\x124\n" +
+	"\tsubtitles\x18\v \x03(\v2\x16.peer.v1.SubtitleTrackR\tsubtitles\"e\n" +
+	"\rSubtitleTrack\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\")\n" +
+	"\rRequestAccess\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x0f\n" +
+	"\rAccessGranted\"\x05\n" +
+	"\x03Ack\"\xaa\x01\n" +
+	"\x05Error\x12-\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x15.peer.v1.Error.StatusR\x06status\x12\x16\n" +
+	"\x06detail\x18\x02 \x01(\tR\x06detail\"Z\n" +
+	"\x06Status\x12\x16\n" +
+	"\x12STATUS_UNSPECIFIED\x10\x00\x12\n" +
+	"\n" +
+	"\x06DENIED\x10\x01\x12\r\n" +
+	"\tNOT_FOUND\x10\x02\x12\x0f\n" +
+	"\vUNAVAILABLE\x10\x03\x12\f\n" +
+	"\bINTERNAL\x10\x04B5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -302,22 +1021,44 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 	return file_proto_peer_v1_peer_proto_rawDescData
 }
 
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
-	(*Envelope)(nil),  // 0: peer.v1.Envelope
-	(*Handshake)(nil), // 1: peer.v1.Handshake
-	(*Ping)(nil),      // 2: peer.v1.Ping
-	(*Pong)(nil),      // 3: peer.v1.Pong
+	(Error_Status)(0),     // 0: peer.v1.Error.Status
+	(*Envelope)(nil),      // 1: peer.v1.Envelope
+	(*Handshake)(nil),     // 2: peer.v1.Handshake
+	(*Ping)(nil),          // 3: peer.v1.Ping
+	(*Pong)(nil),          // 4: peer.v1.Pong
+	(*Browse)(nil),        // 5: peer.v1.Browse
+	(*Catalog)(nil),       // 6: peer.v1.Catalog
+	(*GetMetadata)(nil),   // 7: peer.v1.GetMetadata
+	(*TitleMeta)(nil),     // 8: peer.v1.TitleMeta
+	(*SubtitleTrack)(nil), // 9: peer.v1.SubtitleTrack
+	(*RequestAccess)(nil), // 10: peer.v1.RequestAccess
+	(*AccessGranted)(nil), // 11: peer.v1.AccessGranted
+	(*Ack)(nil),           // 12: peer.v1.Ack
+	(*Error)(nil),         // 13: peer.v1.Error
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
-	1, // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
-	2, // 1: peer.v1.Envelope.ping:type_name -> peer.v1.Ping
-	3, // 2: peer.v1.Envelope.pong:type_name -> peer.v1.Pong
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
+	3,  // 1: peer.v1.Envelope.ping:type_name -> peer.v1.Ping
+	4,  // 2: peer.v1.Envelope.pong:type_name -> peer.v1.Pong
+	5,  // 3: peer.v1.Envelope.browse:type_name -> peer.v1.Browse
+	6,  // 4: peer.v1.Envelope.catalog:type_name -> peer.v1.Catalog
+	7,  // 5: peer.v1.Envelope.get_metadata:type_name -> peer.v1.GetMetadata
+	8,  // 6: peer.v1.Envelope.title_meta:type_name -> peer.v1.TitleMeta
+	10, // 7: peer.v1.Envelope.request_access:type_name -> peer.v1.RequestAccess
+	11, // 8: peer.v1.Envelope.access_granted:type_name -> peer.v1.AccessGranted
+	12, // 9: peer.v1.Envelope.ack:type_name -> peer.v1.Ack
+	13, // 10: peer.v1.Envelope.error:type_name -> peer.v1.Error
+	8,  // 11: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 12: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 13: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -329,19 +1070,28 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_Handshake)(nil),
 		(*Envelope_Ping)(nil),
 		(*Envelope_Pong)(nil),
+		(*Envelope_Browse)(nil),
+		(*Envelope_Catalog)(nil),
+		(*Envelope_GetMetadata)(nil),
+		(*Envelope_TitleMeta)(nil),
+		(*Envelope_RequestAccess)(nil),
+		(*Envelope_AccessGranted)(nil),
+		(*Envelope_Ack)(nil),
+		(*Envelope_Error)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   4,
+			NumEnums:      1,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_proto_peer_v1_peer_proto_goTypes,
 		DependencyIndexes: file_proto_peer_v1_peer_proto_depIdxs,
+		EnumInfos:         file_proto_peer_v1_peer_proto_enumTypes,
 		MessageInfos:      file_proto_peer_v1_peer_proto_msgTypes,
 	}.Build()
 	File_proto_peer_v1_peer_proto = out.File
