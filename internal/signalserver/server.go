@@ -17,6 +17,7 @@ import (
 type client struct {
 	info signaling.PeerInfo
 	send chan []byte
+	conn *websocket.Conn
 }
 
 // Server tracks online clients and routes relays.
@@ -44,7 +45,9 @@ func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Challenge.
 	nonce := make([]byte, 32)
-	_, _ = rand.Read(nonce)
+	if _, err := rand.Read(nonce); err != nil {
+		return
+	}
 	if err := writeMsg(conn, signaling.Challenge{Nonce: nonce}); err != nil {
 		return
 	}
@@ -68,6 +71,7 @@ func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
 	c := &client{
 		info: signaling.PeerInfo{NodeID: reg.NodeID, PublicKey: reg.PublicKey, DisplayName: reg.DisplayName},
 		send: make(chan []byte, 32),
+		conn: conn,
 	}
 
 	// 3. Register: snapshot to this client, join broadcast to others.
@@ -75,8 +79,9 @@ func (s *Server) HandleWS(w http.ResponseWriter, r *http.Request) {
 	_ = writeMsg(conn, signaling.PresenceSnapshot{Peers: snapshot})
 	s.broadcastExcept(c.info.NodeID, signaling.PresenceJoin{Peer: c.info})
 	defer func() {
-		s.remove(c.info.NodeID)
-		s.broadcastExcept(c.info.NodeID, signaling.PresenceLeave{NodeID: c.info.NodeID})
+		if s.remove(c) {
+			s.broadcastExcept(c.info.NodeID, signaling.PresenceLeave{NodeID: c.info.NodeID})
+		}
 	}()
 
 	// 4. Writer goroutine.
@@ -128,18 +133,30 @@ func validRegister(reg *signaling.Register, nonce []byte) bool {
 func (s *Server) add(c *client) []signaling.PeerInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// A new connection for the same identity supersedes the old one: close the
+	// prior connection so its read loop exits and cleans up.
+	if prior, ok := s.clients[c.info.NodeID]; ok {
+		prior.conn.Close()
+	}
 	others := make([]signaling.PeerInfo, 0, len(s.clients))
 	for _, existing := range s.clients {
+		if existing.info.NodeID == c.info.NodeID {
+			continue // skip the superseded prior
+		}
 		others = append(others, existing.info)
 	}
 	s.clients[c.info.NodeID] = c
 	return others
 }
 
-func (s *Server) remove(nodeID string) {
+func (s *Server) remove(c *client) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	delete(s.clients, nodeID)
+	if s.clients[c.info.NodeID] == c {
+		delete(s.clients, c.info.NodeID)
+		return true
+	}
+	return false
 }
 
 func (s *Server) broadcastExcept(exceptNodeID string, msg any) {
@@ -153,6 +170,7 @@ func (s *Server) broadcastExcept(exceptNodeID string, msg any) {
 		if id == exceptNodeID {
 			continue
 		}
+		// Non-blocking: safe to send under the lock, and drops to a slow client rather than blocking.
 		select {
 		case c.send <- b:
 		default:
@@ -172,6 +190,7 @@ func (s *Server) routeRelay(rel signaling.Relay) {
 	if !ok {
 		return
 	}
+	// Relay delivery is best-effort (no ack); the sender relies on WebRTC/ICE timeouts.
 	select {
 	case target.send <- b:
 	default:

@@ -103,6 +103,29 @@ func TestRelayForwardsPayloadWithFromSet(t *testing.T) {
 	}
 }
 
+func TestPresenceLeaveBroadcastOnDisconnect(t *testing.T) {
+	wsURL := newServer(t)
+	idA, _ := identity.Generate()
+	idB, _ := identity.Generate()
+
+	connA, _ := dialAndRegister(t, wsURL, idA, "alice")
+	connB, _ := dialAndRegister(t, wsURL, idB, "bob")
+
+	connA.Close() // A disconnects
+
+	connB.SetReadDeadline(time.Now().Add(2 * time.Second))
+	for {
+		_, msg, err := connB.ReadMessage()
+		require.NoError(t, err)
+		typ, env, err := signaling.Unmarshal(msg)
+		require.NoError(t, err)
+		if typ == signaling.TypePresenceLeave {
+			require.Equal(t, string(idA.NodeID()), env.(*signaling.PresenceLeave).NodeID)
+			return
+		}
+	}
+}
+
 func TestRegisterRejectsBadSignature(t *testing.T) {
 	wsURL := newServer(t)
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
