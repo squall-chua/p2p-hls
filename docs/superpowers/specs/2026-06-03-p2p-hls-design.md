@@ -246,7 +246,7 @@ Canonical terms: **Node**, **Peer**, **User**, **Host**, **Viewer**, **Title** (
 - Bind `127.0.0.1`, **ephemeral port**, **Origin/Host check**, **per-session token** (handed to the embedded UI at launch). Blocks DNS-rebinding and other local processes.
 
 ### Project layout
-Single Go module `github.com/squallchua/p2p-hls`, monorepo, two binaries:
+Single Go module `github.com/squall-chua/p2p-hls`, monorepo, two binaries:
 ```
 cmd/{node, signal-server}
 internal/{identity, signaling, signalserver, peer, library, catalog, media, bridge, app}

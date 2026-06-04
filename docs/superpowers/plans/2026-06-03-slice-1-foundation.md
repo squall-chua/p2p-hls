@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.23 · `github.com/pion/webrtc/v4` · `github.com/gorilla/websocket` · `google.golang.org/protobuf` · `github.com/pelletier/go-toml/v2` · `github.com/stretchr/testify` · stdlib `crypto/ed25519`, `log/slog`.
 
-**Module path:** `github.com/squallchua/p2p-hls`
+**Module path:** `github.com/squall-chua/p2p-hls`
 
 **Out of scope (later slices):** library scan/index, catalog/browse, ffmpeg/HLS, the loopback HTTP bridge, bulk-channel chunking/reassembly, trickle ICE, TURN, access-control policy, the web UI.
 
@@ -53,7 +53,7 @@
 Run:
 ```bash
 cd /home/mwchua/p2p-hls
-go mod init github.com/squallchua/p2p-hls
+go mod init github.com/squall-chua/p2p-hls
 go get github.com/pion/webrtc/v4@latest
 go get github.com/gorilla/websocket@latest
 go get google.golang.org/protobuf@latest
@@ -108,7 +108,7 @@ func TestModuleBuilds(t *testing.T) {
 - [ ] **Step 5: Verify the toolchain**
 
 Run: `go test ./... && protoc --version`
-Expected: `ok github.com/squallchua/p2p-hls/internal/buildcheck`, and protoc prints a version (e.g. `libprotoc 3.x`). If `protoc` is missing, install it (`apt install -y protobuf-compiler` or `brew install protobuf`).
+Expected: `ok github.com/squall-chua/p2p-hls/internal/buildcheck`, and protoc prints a version (e.g. `libprotoc 3.x`). If `protoc` is missing, install it (`apt install -y protobuf-compiler` or `brew install protobuf`).
 
 - [ ] **Step 6: Commit**
 
@@ -135,7 +135,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -287,7 +287,7 @@ package signaling_test
 import (
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/signaling"
+	"github.com/squall-chua/p2p-hls/internal/signaling"
 	"github.com/stretchr/testify/require"
 )
 
@@ -495,9 +495,9 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/signaling"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/signaling"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -633,8 +633,8 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/signaling"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/signaling"
 )
 
 type client struct {
@@ -847,9 +847,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/signaling"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/signaling"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -914,7 +914,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // Client is a Node's connection to the signaling server.
@@ -1071,7 +1071,7 @@ syntax = "proto3";
 
 package peer.v1;
 
-option go_package = "github.com/squallchua/p2p-hls/proto/peer/v1;peerv1";
+option go_package = "github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1";
 
 // Envelope is one control-channel message. Each WebRTC data-channel send carries
 // exactly one Envelope (SCTP preserves message boundaries; no length prefix needed).
@@ -1108,7 +1108,7 @@ package peer
 import (
 	"testing"
 
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1148,7 +1148,7 @@ package peer
 import (
 	"sync/atomic"
 
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1204,7 +1204,7 @@ import (
 	"testing"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1258,7 +1258,7 @@ import (
 	"fmt"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // SignedSignal is a WebRTC SDP carried over the (untrusted) signaling server,
@@ -1349,7 +1349,7 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1425,8 +1425,8 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
 // ProtocolVersion is the wire-protocol version exchanged at handshake.
@@ -1650,7 +1650,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/app"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1772,9 +1772,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1824,9 +1824,9 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/peer"
-	"github.com/squallchua/p2p-hls/internal/signaling"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/signaling"
 )
 
 // Node is a running app instance: a signaling client plus its peer sessions.
@@ -1955,7 +1955,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 )
 
 func main() {
@@ -1988,8 +1988,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 func main() {
@@ -2084,9 +2084,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 

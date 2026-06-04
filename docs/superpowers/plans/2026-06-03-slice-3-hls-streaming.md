@@ -220,7 +220,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -585,8 +585,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/stretchr/testify/require"
 )
 
@@ -651,7 +651,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 )
 
 // Runner executes an ffmpeg invocation. Implemented by ExecRunner; faked in tests.
@@ -766,8 +766,8 @@ package media_test
 import (
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/stretchr/testify/require"
 )
 
@@ -822,7 +822,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 )
 
 // TextSubtitleTracks returns only the convertible (text) subtitle tracks.
@@ -861,7 +861,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 )
 
 // MasterPlaylist builds the master playlist that references the video media
@@ -935,9 +935,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/media"
-	"github.com/squallchua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1018,8 +1018,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 )
 
 // Engine produces and serves HLS renditions, one cache dir per Content ID.
@@ -1161,7 +1161,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1315,10 +1315,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/media"
-	"github.com/squallchua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1376,10 +1376,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 )
 
 // Service answers streaming RPCs over the Engine, gated by the access Policy.
@@ -1498,8 +1498,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/bridge"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/bridge"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1568,7 +1568,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // Streamer fetches playlists and segments from a remote Host session.
@@ -1694,12 +1694,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/media"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1764,7 +1764,7 @@ In `internal/app/node.go`, add a field to `Node`:
 ```go
 	media *media.Service
 ```
-Add imports `"github.com/squallchua/p2p-hls/internal/media"` and `"context"` (already present). Then add methods:
+Add imports `"github.com/squall-chua/p2p-hls/internal/media"` and `"context"` (already present). Then add methods:
 ```go
 // SetMedia installs the streaming handler on existing and future sessions.
 func (n *Node) SetMedia(svc *media.Service) {
@@ -1832,8 +1832,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
 )
 
 // Download streams the original file from host to destPath, then verifies its
@@ -1910,13 +1910,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/bridge"
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/media"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/bridge"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 

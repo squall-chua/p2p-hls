@@ -56,7 +56,7 @@ syntax = "proto3";
 
 package peer.v1;
 
-option go_package = "github.com/squallchua/p2p-hls/proto/peer/v1;peerv1";
+option go_package = "github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1";
 
 message Envelope {
   uint64 request_id = 1;
@@ -160,7 +160,7 @@ import (
 	"errors"
 	"fmt"
 
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
 // Sentinel RPC errors. Handlers return these; the wire layer maps them to/from
@@ -221,8 +221,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -563,7 +563,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
 )
 
@@ -659,7 +659,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1036,7 +1036,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1103,7 +1103,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1364,7 +1364,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1585,8 +1585,8 @@ package catalog_test
 import (
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1634,7 +1634,7 @@ package catalog
 import (
 	"sync"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // Visibility is a Library's default access posture.
@@ -1694,7 +1694,7 @@ package catalog
 import (
 	"sync"
 
-	"github.com/squallchua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // Requests holds pending access requests awaiting the User's approval.
@@ -1768,10 +1768,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1835,10 +1835,10 @@ Create `internal/catalog/service.go`:
 package catalog
 
 import (
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
-	peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
 // Service answers browse RPCs from Viewers, enforcing the access Policy.
@@ -1964,12 +1964,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
@@ -2045,7 +2045,7 @@ In `internal/app/node.go`, add a `catalog` field and a guard to the `Node` struc
 ```go
 	catalog *catalog.Service
 ```
-Add the import `"github.com/squallchua/p2p-hls/internal/catalog"` and `peerv1 "github.com/squallchua/p2p-hls/proto/peer/v1"`.
+Add the import `"github.com/squall-chua/p2p-hls/internal/catalog"` and `peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"`.
 
 Then add these methods to `internal/app/node.go`:
 ```go
@@ -2184,12 +2184,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/squallchua/p2p-hls/internal/app"
-	"github.com/squallchua/p2p-hls/internal/catalog"
-	"github.com/squallchua/p2p-hls/internal/identity"
-	"github.com/squallchua/p2p-hls/internal/library"
-	"github.com/squallchua/p2p-hls/internal/peer"
-	"github.com/squallchua/p2p-hls/internal/signalserver"
+	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
+	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/signalserver"
 	"github.com/stretchr/testify/require"
 )
 
