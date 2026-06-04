@@ -20,6 +20,10 @@ message Envelope {
     AccessGranted access_granted = 10;
     Ack ack = 11;
     Error error = 12;
+    GetPlaylist get_playlist = 13;
+    Playlist playlist = 14;
+    GetSegment get_segment = 15;
+    Download download = 16;
   }
 }
 
@@ -73,4 +77,29 @@ message Error {
     UNAVAILABLE = 3;
     INTERNAL = 4;
   }
+}
+
+// GetPlaylist requests a named playlist (e.g. "playlist.m3u8", "index.m3u8",
+// "sub_eng.m3u8") for a Title. Small text response over the control channel.
+message GetPlaylist {
+  string content_id = 1;
+  string name = 2;
+}
+
+message Playlist {
+  bytes data = 1;
+  string content_type = 2;
+  bool complete = 3; // false while ffmpeg is still producing (growing playlist)
+}
+
+// GetSegment requests a named segment ("seg00003.ts", "sub_eng_0.vtt").
+// The bytes return on the bulk channel, correlated by request_id.
+message GetSegment {
+  string content_id = 1;
+  string name = 2;
+}
+
+// Download requests the original file bytes (streamed on the bulk channel).
+message Download {
+  string content_id = 1;
 }

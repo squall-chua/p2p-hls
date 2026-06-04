@@ -94,6 +94,10 @@ type Envelope struct {
 	//	*Envelope_AccessGranted
 	//	*Envelope_Ack
 	//	*Envelope_Error
+	//	*Envelope_GetPlaylist
+	//	*Envelope_Playlist_
+	//	*Envelope_GetSegment
+	//	*Envelope_Download
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -242,6 +246,42 @@ func (x *Envelope) GetError() *Error {
 	return nil
 }
 
+func (x *Envelope) GetGetPlaylist() *GetPlaylist {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_GetPlaylist); ok {
+			return x.GetPlaylist
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPlaylist_() *Playlist {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Playlist_); ok {
+			return x.Playlist_
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetGetSegment() *GetSegment {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_GetSegment); ok {
+			return x.GetSegment
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetDownload() *Download {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_Download); ok {
+			return x.Download
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -290,6 +330,22 @@ type Envelope_Error struct {
 	Error *Error `protobuf:"bytes,12,opt,name=error,proto3,oneof"`
 }
 
+type Envelope_GetPlaylist struct {
+	GetPlaylist *GetPlaylist `protobuf:"bytes,13,opt,name=get_playlist,json=getPlaylist,proto3,oneof"`
+}
+
+type Envelope_Playlist_ struct {
+	Playlist_ *Playlist `protobuf:"bytes,14,opt,name=playlist,proto3,oneof"`
+}
+
+type Envelope_GetSegment struct {
+	GetSegment *GetSegment `protobuf:"bytes,15,opt,name=get_segment,json=getSegment,proto3,oneof"`
+}
+
+type Envelope_Download struct {
+	Download *Download `protobuf:"bytes,16,opt,name=download,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
@@ -311,6 +367,14 @@ func (*Envelope_AccessGranted) isEnvelope_Body() {}
 func (*Envelope_Ack) isEnvelope_Body() {}
 
 func (*Envelope_Error) isEnvelope_Body() {}
+
+func (*Envelope_GetPlaylist) isEnvelope_Body() {}
+
+func (*Envelope_Playlist_) isEnvelope_Body() {}
+
+func (*Envelope_GetSegment) isEnvelope_Body() {}
+
+func (*Envelope_Download) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -937,11 +1001,224 @@ func (x *Error) GetDetail() string {
 	return ""
 }
 
+// GetPlaylist requests a named playlist (e.g. "playlist.m3u8", "index.m3u8",
+// "sub_eng.m3u8") for a Title. Small text response over the control channel.
+type GetPlaylist struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPlaylist) Reset() {
+	*x = GetPlaylist{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPlaylist) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPlaylist) ProtoMessage() {}
+
+func (x *GetPlaylist) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPlaylist.ProtoReflect.Descriptor instead.
+func (*GetPlaylist) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetPlaylist) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+func (x *GetPlaylist) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type Playlist struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	ContentType   string                 `protobuf:"bytes,2,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Complete      bool                   `protobuf:"varint,3,opt,name=complete,proto3" json:"complete,omitempty"` // false while ffmpeg is still producing (growing playlist)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Playlist) Reset() {
+	*x = Playlist{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Playlist) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Playlist) ProtoMessage() {}
+
+func (x *Playlist) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Playlist.ProtoReflect.Descriptor instead.
+func (*Playlist) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Playlist) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *Playlist) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
+func (x *Playlist) GetComplete() bool {
+	if x != nil {
+		return x.Complete
+	}
+	return false
+}
+
+// GetSegment requests a named segment ("seg00003.ts", "sub_eng_0.vtt").
+// The bytes return on the bulk channel, correlated by request_id.
+type GetSegment struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSegment) Reset() {
+	*x = GetSegment{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSegment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSegment) ProtoMessage() {}
+
+func (x *GetSegment) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSegment.ProtoReflect.Descriptor instead.
+func (*GetSegment) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetSegment) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+func (x *GetSegment) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// Download requests the original file bytes (streamed on the bulk channel).
+type Download struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Download) Reset() {
+	*x = Download{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Download) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Download) ProtoMessage() {}
+
+func (x *Download) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Download.ProtoReflect.Descriptor instead.
+func (*Download) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *Download) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xc4\x04\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\x99\x06\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x04R\trequestId\x122\n" +
@@ -957,7 +1234,12 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x0eaccess_granted\x18\n" +
 	" \x01(\v2\x16.peer.v1.AccessGrantedH\x00R\raccessGranted\x12 \n" +
 	"\x03ack\x18\v \x01(\v2\f.peer.v1.AckH\x00R\x03ack\x12&\n" +
-	"\x05error\x18\f \x01(\v2\x0e.peer.v1.ErrorH\x00R\x05errorB\x06\n" +
+	"\x05error\x18\f \x01(\v2\x0e.peer.v1.ErrorH\x00R\x05error\x129\n" +
+	"\fget_playlist\x18\r \x01(\v2\x14.peer.v1.GetPlaylistH\x00R\vgetPlaylist\x12/\n" +
+	"\bplaylist\x18\x0e \x01(\v2\x11.peer.v1.PlaylistH\x00R\bplaylist\x126\n" +
+	"\vget_segment\x18\x0f \x01(\v2\x13.peer.v1.GetSegmentH\x00R\n" +
+	"getSegment\x12/\n" +
+	"\bdownload\x18\x10 \x01(\v2\x11.peer.v1.DownloadH\x00R\bdownloadB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -1007,7 +1289,23 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x06DENIED\x10\x01\x12\r\n" +
 	"\tNOT_FOUND\x10\x02\x12\x0f\n" +
 	"\vUNAVAILABLE\x10\x03\x12\f\n" +
-	"\bINTERNAL\x10\x04B5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"\bINTERNAL\x10\x04\"@\n" +
+	"\vGetPlaylist\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"]\n" +
+	"\bPlaylist\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\x12!\n" +
+	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
+	"\bcomplete\x18\x03 \x01(\bR\bcomplete\"?\n" +
+	"\n" +
+	"GetSegment\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\")\n" +
+	"\bDownload\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentIdB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -1022,7 +1320,7 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(Error_Status)(0),     // 0: peer.v1.Error.Status
 	(*Envelope)(nil),      // 1: peer.v1.Envelope
@@ -1038,6 +1336,10 @@ var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(*AccessGranted)(nil), // 11: peer.v1.AccessGranted
 	(*Ack)(nil),           // 12: peer.v1.Ack
 	(*Error)(nil),         // 13: peer.v1.Error
+	(*GetPlaylist)(nil),   // 14: peer.v1.GetPlaylist
+	(*Playlist)(nil),      // 15: peer.v1.Playlist
+	(*GetSegment)(nil),    // 16: peer.v1.GetSegment
+	(*Download)(nil),      // 17: peer.v1.Download
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
@@ -1051,14 +1353,18 @@ var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	11, // 8: peer.v1.Envelope.access_granted:type_name -> peer.v1.AccessGranted
 	12, // 9: peer.v1.Envelope.ack:type_name -> peer.v1.Ack
 	13, // 10: peer.v1.Envelope.error:type_name -> peer.v1.Error
-	8,  // 11: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
-	9,  // 12: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
-	0,  // 13: peer.v1.Error.status:type_name -> peer.v1.Error.Status
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	14, // 11: peer.v1.Envelope.get_playlist:type_name -> peer.v1.GetPlaylist
+	15, // 12: peer.v1.Envelope.playlist:type_name -> peer.v1.Playlist
+	16, // 13: peer.v1.Envelope.get_segment:type_name -> peer.v1.GetSegment
+	17, // 14: peer.v1.Envelope.download:type_name -> peer.v1.Download
+	8,  // 15: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 16: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 17: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -1078,6 +1384,10 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_AccessGranted)(nil),
 		(*Envelope_Ack)(nil),
 		(*Envelope_Error)(nil),
+		(*Envelope_GetPlaylist)(nil),
+		(*Envelope_Playlist_)(nil),
+		(*Envelope_GetSegment)(nil),
+		(*Envelope_Download)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1085,7 +1395,7 @@ func file_proto_peer_v1_peer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
