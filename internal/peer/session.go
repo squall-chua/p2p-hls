@@ -33,6 +33,9 @@ type Session struct {
 
 	readyOnce sync.Once
 	ready     chan struct{}
+
+	handler         RequestHandler
+	onAccessGranted func(identity.NodeID)
 }
 
 // NewSession builds a Session and its underlying PeerConnection.
@@ -148,14 +151,22 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 				RequestId: env.RequestId,
 				Body:      &peerv1.Envelope_Pong{Pong: &peerv1.Pong{Nonce: body.Ping.GetNonce()}},
 			})
-		case *peerv1.Envelope_Pong:
+		case *peerv1.Envelope_Browse:
+			s.handleBrowse(env.RequestId)
+		case *peerv1.Envelope_GetMetadata:
+			s.handleGetMetadata(env.RequestId, body.GetMetadata.GetContentId())
+		case *peerv1.Envelope_RequestAccess:
+			s.handleRequestAccess(env.RequestId, body.RequestAccess.GetMessage())
+		case *peerv1.Envelope_AccessGranted:
 			s.mu.Lock()
-			ch, ok := s.pending[env.RequestId]
-			delete(s.pending, env.RequestId)
+			fn := s.onAccessGranted
 			s.mu.Unlock()
-			if ok {
-				ch <- env
+			if fn != nil {
+				fn(s.remote)
 			}
+		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
+			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Error:
+			s.deliver(env)
 		}
 	})
 }
@@ -179,32 +190,161 @@ func (s *Session) Ready() <-chan struct{} { return s.ready }
 
 // Ping sends a ping and returns the echoed nonce.
 func (s *Session) Ping(ctx context.Context, nonce string) (string, error) {
-	id := s.ids.next()
-	ch := make(chan *peerv1.Envelope, 1)
-	s.mu.Lock()
-	s.pending[id] = ch
-	s.mu.Unlock()
-
-	if err := s.send(&peerv1.Envelope{
-		RequestId: id,
-		Body:      &peerv1.Envelope_Ping{Ping: &peerv1.Ping{Nonce: nonce}},
-	}); err != nil {
-		s.mu.Lock()
-		delete(s.pending, id)
-		s.mu.Unlock()
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_Ping{Ping: &peerv1.Ping{Nonce: nonce}}})
+	if err != nil {
 		return "", err
 	}
-	select {
-	case env := <-ch:
-		return env.GetPong().GetNonce(), nil
-	case <-ctx.Done():
-		s.mu.Lock()
-		delete(s.pending, id)
-		s.mu.Unlock()
-		return "", ctx.Err()
+	if e := resp.GetError(); e != nil {
+		return "", statusErr(e)
 	}
+	return resp.GetPong().GetNonce(), nil
 }
 
 // Close tears down the connection.
 // TODO(slice-3): cancel in-flight Pings (close a done channel) and tear down pending when Close gains real connection lifecycle management.
 func (s *Session) Close() error { return s.pc.Close() }
+
+// RequestHandler answers inbound RPCs. Installed per Session by the app layer.
+type RequestHandler interface {
+	Browse(remote identity.NodeID) ([]*peerv1.TitleMeta, error)
+	GetMetadata(remote identity.NodeID, contentID string) (*peerv1.TitleMeta, error)
+	RequestAccess(remote identity.NodeID, message string) error
+}
+
+// SetHandler installs the inbound-request handler.
+func (s *Session) SetHandler(h RequestHandler) {
+	s.mu.Lock()
+	s.handler = h
+	s.mu.Unlock()
+}
+
+// currentHandler returns the installed handler under lock.
+func (s *Session) currentHandler() RequestHandler {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.handler
+}
+
+// OnAccessGranted registers a callback fired when the remote grants us access.
+func (s *Session) OnAccessGranted(fn func(identity.NodeID)) {
+	s.mu.Lock()
+	s.onAccessGranted = fn
+	s.mu.Unlock()
+}
+
+// call sends a request envelope and waits for the correlated response.
+func (s *Session) call(ctx context.Context, env *peerv1.Envelope) (*peerv1.Envelope, error) {
+	id := s.ids.next()
+	env.RequestId = id
+	ch := make(chan *peerv1.Envelope, 1)
+	s.mu.Lock()
+	s.pending[id] = ch
+	s.mu.Unlock()
+	if err := s.send(env); err != nil {
+		s.mu.Lock()
+		delete(s.pending, id)
+		s.mu.Unlock()
+		return nil, err
+	}
+	select {
+	case resp := <-ch:
+		return resp, nil
+	case <-ctx.Done():
+		s.mu.Lock()
+		delete(s.pending, id)
+		s.mu.Unlock()
+		return nil, ctx.Err()
+	}
+}
+
+func (s *Session) deliver(env *peerv1.Envelope) {
+	s.mu.Lock()
+	ch, ok := s.pending[env.RequestId]
+	delete(s.pending, env.RequestId)
+	s.mu.Unlock()
+	if ok {
+		ch <- env
+	}
+}
+
+// Browse fetches the remote's Catalog.
+func (s *Session) Browse(ctx context.Context) ([]*peerv1.TitleMeta, error) {
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_Browse{Browse: &peerv1.Browse{}}})
+	if err != nil {
+		return nil, err
+	}
+	if e := resp.GetError(); e != nil {
+		return nil, statusErr(e)
+	}
+	return resp.GetCatalog().GetTitles(), nil
+}
+
+// GetMetadata fetches one Title's metadata.
+func (s *Session) GetMetadata(ctx context.Context, contentID string) (*peerv1.TitleMeta, error) {
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_GetMetadata{GetMetadata: &peerv1.GetMetadata{ContentId: contentID}}})
+	if err != nil {
+		return nil, err
+	}
+	if e := resp.GetError(); e != nil {
+		return nil, statusErr(e)
+	}
+	return resp.GetTitleMeta(), nil
+}
+
+// RequestAccess asks the remote Host to allow this Node.
+func (s *Session) RequestAccess(ctx context.Context, message string) error {
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_RequestAccess{RequestAccess: &peerv1.RequestAccess{Message: message}}})
+	if err != nil {
+		return err
+	}
+	if e := resp.GetError(); e != nil {
+		return statusErr(e)
+	}
+	return nil // Ack
+}
+
+// SendAccessGranted notifies the remote Viewer that access was approved.
+func (s *Session) SendAccessGranted() error {
+	return s.send(&peerv1.Envelope{Body: &peerv1.Envelope_AccessGranted{AccessGranted: &peerv1.AccessGranted{}}})
+}
+
+func (s *Session) handleBrowse(reqID uint64) {
+	h := s.currentHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	titles, err := h.Browse(s.remote)
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_Catalog{Catalog: &peerv1.Catalog{Titles: titles}}})
+}
+
+func (s *Session) handleGetMetadata(reqID uint64, contentID string) {
+	h := s.currentHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	meta, err := h.GetMetadata(s.remote, contentID)
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_TitleMeta{TitleMeta: meta}})
+}
+
+func (s *Session) handleRequestAccess(reqID uint64, message string) {
+	h := s.currentHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	if err := h.RequestAccess(s.remote, message); err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_Ack{Ack: &peerv1.Ack{}}})
+}
