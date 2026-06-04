@@ -3,11 +3,14 @@ module github.com/squall-chua/p2p-hls
 go 1.25.1
 
 require (
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/pion/webrtc/v4 v4.2.14
 	github.com/stretchr/testify v1.11.1
+	github.com/zeebo/blake3 v0.2.4
 	google.golang.org/protobuf v1.36.11
+	modernc.org/sqlite v1.51.0
 )
 
 require (
@@ -35,7 +38,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
-	github.com/zeebo/blake3 v0.2.4 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
@@ -44,5 +46,4 @@ require (
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.51.0 // indirect
 )
