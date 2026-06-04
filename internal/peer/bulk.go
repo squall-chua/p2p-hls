@@ -8,8 +8,8 @@ const (
 	bulkHeaderSize = 13 // 8 (requestId) + 4 (seq) + 1 (flags)
 	payloadMax     = FrameSize - bulkHeaderSize
 	flagLast       = 0x01
-	bulkHighWater  = 1 << 20   // pause sending above 1 MiB buffered
-	bulkLowWater   = 256 << 10 // resume below 256 KiB
+	bulkHighWater  = 1 << 20 // pause sending above 1 MiB buffered
+	bulkLowWater   = 1 << 20 // resume threshold == high-water so OnBufferedAmountLow fires right when sending should resume
 )
 
 func encodeBulkFrame(requestID uint64, seq uint32, last bool, payload []byte) []byte {
