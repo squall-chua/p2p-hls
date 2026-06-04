@@ -98,6 +98,13 @@ type Envelope struct {
 	//	*Envelope_Playlist_
 	//	*Envelope_GetSegment
 	//	*Envelope_Download
+	//	*Envelope_JoinParty
+	//	*Envelope_PartyWelcome
+	//	*Envelope_PartyInvite
+	//	*Envelope_PartyState
+	//	*Envelope_PartyAudience
+	//	*Envelope_LeaveParty
+	//	*Envelope_PartyEnded
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -282,6 +289,69 @@ func (x *Envelope) GetDownload() *Download {
 	return nil
 }
 
+func (x *Envelope) GetJoinParty() *JoinParty {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_JoinParty); ok {
+			return x.JoinParty
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPartyWelcome() *PartyWelcome {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyWelcome); ok {
+			return x.PartyWelcome
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPartyInvite() *PartyInvite {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyInvite); ok {
+			return x.PartyInvite
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPartyState() *PartyState {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyState); ok {
+			return x.PartyState
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPartyAudience() *PartyAudience {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyAudience); ok {
+			return x.PartyAudience
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetLeaveParty() *LeaveParty {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_LeaveParty); ok {
+			return x.LeaveParty
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetPartyEnded() *PartyEnded {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyEnded); ok {
+			return x.PartyEnded
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -346,6 +416,34 @@ type Envelope_Download struct {
 	Download *Download `protobuf:"bytes,16,opt,name=download,proto3,oneof"`
 }
 
+type Envelope_JoinParty struct {
+	JoinParty *JoinParty `protobuf:"bytes,17,opt,name=join_party,json=joinParty,proto3,oneof"`
+}
+
+type Envelope_PartyWelcome struct {
+	PartyWelcome *PartyWelcome `protobuf:"bytes,18,opt,name=party_welcome,json=partyWelcome,proto3,oneof"`
+}
+
+type Envelope_PartyInvite struct {
+	PartyInvite *PartyInvite `protobuf:"bytes,19,opt,name=party_invite,json=partyInvite,proto3,oneof"`
+}
+
+type Envelope_PartyState struct {
+	PartyState *PartyState `protobuf:"bytes,20,opt,name=party_state,json=partyState,proto3,oneof"`
+}
+
+type Envelope_PartyAudience struct {
+	PartyAudience *PartyAudience `protobuf:"bytes,21,opt,name=party_audience,json=partyAudience,proto3,oneof"`
+}
+
+type Envelope_LeaveParty struct {
+	LeaveParty *LeaveParty `protobuf:"bytes,22,opt,name=leave_party,json=leaveParty,proto3,oneof"`
+}
+
+type Envelope_PartyEnded struct {
+	PartyEnded *PartyEnded `protobuf:"bytes,23,opt,name=party_ended,json=partyEnded,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
@@ -375,6 +473,20 @@ func (*Envelope_Playlist_) isEnvelope_Body() {}
 func (*Envelope_GetSegment) isEnvelope_Body() {}
 
 func (*Envelope_Download) isEnvelope_Body() {}
+
+func (*Envelope_JoinParty) isEnvelope_Body() {}
+
+func (*Envelope_PartyWelcome) isEnvelope_Body() {}
+
+func (*Envelope_PartyInvite) isEnvelope_Body() {}
+
+func (*Envelope_PartyState) isEnvelope_Body() {}
+
+func (*Envelope_PartyAudience) isEnvelope_Body() {}
+
+func (*Envelope_LeaveParty) isEnvelope_Body() {}
+
+func (*Envelope_PartyEnded) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -654,6 +766,8 @@ type TitleMeta struct {
 	SizeBytes     int64                  `protobuf:"varint,9,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	HlsCompatible bool                   `protobuf:"varint,10,opt,name=hls_compatible,json=hlsCompatible,proto3" json:"hls_compatible,omitempty"`
 	Subtitles     []*SubtitleTrack       `protobuf:"bytes,11,rep,name=subtitles,proto3" json:"subtitles,omitempty"`
+	PartyLive     bool                   `protobuf:"varint,12,opt,name=party_live,json=partyLive,proto3" json:"party_live,omitempty"`          // a live Watch Party exists for this Title on this Host
+	PartyViewers  int32                  `protobuf:"varint,13,opt,name=party_viewers,json=partyViewers,proto3" json:"party_viewers,omitempty"` // current Audience size (Viewers, excluding the Host)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -763,6 +877,20 @@ func (x *TitleMeta) GetSubtitles() []*SubtitleTrack {
 		return x.Subtitles
 	}
 	return nil
+}
+
+func (x *TitleMeta) GetPartyLive() bool {
+	if x != nil {
+		return x.PartyLive
+	}
+	return false
+}
+
+func (x *TitleMeta) GetPartyViewers() int32 {
+	if x != nil {
+		return x.PartyViewers
+	}
+	return 0
 }
 
 type SubtitleTrack struct {
@@ -1214,11 +1342,469 @@ func (x *Download) GetContentId() string {
 	return ""
 }
 
+// JoinParty asks a Host to admit this Viewer to the live Watch Party for a Title.
+// content_id is only the join reference; the Host answers with the current party_id.
+type JoinParty struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JoinParty) Reset() {
+	*x = JoinParty{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JoinParty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JoinParty) ProtoMessage() {}
+
+func (x *JoinParty) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JoinParty.ProtoReflect.Descriptor instead.
+func (*JoinParty) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *JoinParty) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+// PartyWelcome admits a Viewer: the assigned party_id, the current authoritative
+// state, and the current Audience.
+type PartyWelcome struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Initial       *PartyState            `protobuf:"bytes,2,opt,name=initial,proto3" json:"initial,omitempty"`
+	Audience      *PartyAudience         `protobuf:"bytes,3,opt,name=audience,proto3" json:"audience,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyWelcome) Reset() {
+	*x = PartyWelcome{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyWelcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyWelcome) ProtoMessage() {}
+
+func (x *PartyWelcome) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyWelcome.ProtoReflect.Descriptor instead.
+func (*PartyWelcome) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *PartyWelcome) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyWelcome) GetInitial() *PartyState {
+	if x != nil {
+		return x.Initial
+	}
+	return nil
+}
+
+func (x *PartyWelcome) GetAudience() *PartyAudience {
+	if x != nil {
+		return x.Audience
+	}
+	return nil
+}
+
+// PartyInvite is pushed by a Host to proactively invite a Node to a Watch Party.
+type PartyInvite struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	PartyId       string                 `protobuf:"bytes,2,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	HostDisplay   string                 `protobuf:"bytes,3,opt,name=host_display,json=hostDisplay,proto3" json:"host_display,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyInvite) Reset() {
+	*x = PartyInvite{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyInvite) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyInvite) ProtoMessage() {}
+
+func (x *PartyInvite) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyInvite.ProtoReflect.Descriptor instead.
+func (*PartyInvite) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *PartyInvite) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+func (x *PartyInvite) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyInvite) GetHostDisplay() string {
+	if x != nil {
+		return x.HostDisplay
+	}
+	return ""
+}
+
+// PartyState is the Host's authoritative playback state at a sample instant.
+// It is both the periodic heartbeat and the on-change event (highest seq wins).
+type PartyState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Playing       bool                   `protobuf:"varint,2,opt,name=playing,proto3" json:"playing,omitempty"`
+	PositionMs    int64                  `protobuf:"varint,3,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
+	HostClockMs   int64                  `protobuf:"varint,4,opt,name=host_clock_ms,json=hostClockMs,proto3" json:"host_clock_ms,omitempty"` // reserved for the NTP fallback; unused by the RTT/2 model
+	Rate          float64                `protobuf:"fixed64,5,opt,name=rate,proto3" json:"rate,omitempty"`
+	Seq           uint64                 `protobuf:"varint,6,opt,name=seq,proto3" json:"seq,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyState) Reset() {
+	*x = PartyState{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyState) ProtoMessage() {}
+
+func (x *PartyState) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyState.ProtoReflect.Descriptor instead.
+func (*PartyState) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PartyState) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyState) GetPlaying() bool {
+	if x != nil {
+		return x.Playing
+	}
+	return false
+}
+
+func (x *PartyState) GetPositionMs() int64 {
+	if x != nil {
+		return x.PositionMs
+	}
+	return 0
+}
+
+func (x *PartyState) GetHostClockMs() int64 {
+	if x != nil {
+		return x.HostClockMs
+	}
+	return 0
+}
+
+func (x *PartyState) GetRate() float64 {
+	if x != nil {
+		return x.Rate
+	}
+	return 0
+}
+
+func (x *PartyState) GetSeq() uint64 {
+	if x != nil {
+		return x.Seq
+	}
+	return 0
+}
+
+// PartyAudience is the current set of Viewers in a Watch Party.
+type PartyAudience struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Members       []*AudienceMember      `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyAudience) Reset() {
+	*x = PartyAudience{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyAudience) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyAudience) ProtoMessage() {}
+
+func (x *PartyAudience) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyAudience.ProtoReflect.Descriptor instead.
+func (*PartyAudience) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *PartyAudience) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyAudience) GetMembers() []*AudienceMember {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+type AudienceMember struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudienceMember) Reset() {
+	*x = AudienceMember{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudienceMember) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudienceMember) ProtoMessage() {}
+
+func (x *AudienceMember) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudienceMember.ProtoReflect.Descriptor instead.
+func (*AudienceMember) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *AudienceMember) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *AudienceMember) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+// LeaveParty tells the Host this Viewer is leaving the Audience.
+type LeaveParty struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LeaveParty) Reset() {
+	*x = LeaveParty{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LeaveParty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LeaveParty) ProtoMessage() {}
+
+func (x *LeaveParty) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LeaveParty.ProtoReflect.Descriptor instead.
+func (*LeaveParty) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *LeaveParty) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+// PartyEnded tells Viewers the Host has stopped the Watch Party.
+type PartyEnded struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyEnded) Reset() {
+	*x = PartyEnded{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyEnded) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyEnded) ProtoMessage() {}
+
+func (x *PartyEnded) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyEnded.ProtoReflect.Descriptor instead.
+func (*PartyEnded) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *PartyEnded) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyEnded) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\x99\x06\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xb0\t\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x04R\trequestId\x122\n" +
@@ -1239,7 +1825,18 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\bplaylist\x18\x0e \x01(\v2\x11.peer.v1.PlaylistH\x00R\bplaylist\x126\n" +
 	"\vget_segment\x18\x0f \x01(\v2\x13.peer.v1.GetSegmentH\x00R\n" +
 	"getSegment\x12/\n" +
-	"\bdownload\x18\x10 \x01(\v2\x11.peer.v1.DownloadH\x00R\bdownloadB\x06\n" +
+	"\bdownload\x18\x10 \x01(\v2\x11.peer.v1.DownloadH\x00R\bdownload\x123\n" +
+	"\n" +
+	"join_party\x18\x11 \x01(\v2\x12.peer.v1.JoinPartyH\x00R\tjoinParty\x12<\n" +
+	"\rparty_welcome\x18\x12 \x01(\v2\x15.peer.v1.PartyWelcomeH\x00R\fpartyWelcome\x129\n" +
+	"\fparty_invite\x18\x13 \x01(\v2\x14.peer.v1.PartyInviteH\x00R\vpartyInvite\x126\n" +
+	"\vparty_state\x18\x14 \x01(\v2\x13.peer.v1.PartyStateH\x00R\n" +
+	"partyState\x12?\n" +
+	"\x0eparty_audience\x18\x15 \x01(\v2\x16.peer.v1.PartyAudienceH\x00R\rpartyAudience\x126\n" +
+	"\vleave_party\x18\x16 \x01(\v2\x13.peer.v1.LeavePartyH\x00R\n" +
+	"leaveParty\x126\n" +
+	"\vparty_ended\x18\x17 \x01(\v2\x13.peer.v1.PartyEndedH\x00R\n" +
+	"partyEndedB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -1253,7 +1850,7 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x06titles\x18\x01 \x03(\v2\x12.peer.v1.TitleMetaR\x06titles\",\n" +
 	"\vGetMetadata\x12\x1d\n" +
 	"\n" +
-	"content_id\x18\x01 \x01(\tR\tcontentId\"\xfc\x02\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\"\xc0\x03\n" +
 	"\tTitleMeta\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x01 \x01(\tR\tcontentId\x12#\n" +
@@ -1270,7 +1867,10 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"size_bytes\x18\t \x01(\x03R\tsizeBytes\x12%\n" +
 	"\x0ehls_compatible\x18\n" +
 	" \x01(\bR\rhlsCompatible\x124\n" +
-	"\tsubtitles\x18\v \x03(\v2\x16.peer.v1.SubtitleTrackR\tsubtitles\"e\n" +
+	"\tsubtitles\x18\v \x03(\v2\x16.peer.v1.SubtitleTrackR\tsubtitles\x12\x1d\n" +
+	"\n" +
+	"party_live\x18\f \x01(\bR\tpartyLive\x12#\n" +
+	"\rparty_viewers\x18\r \x01(\x05R\fpartyViewers\"e\n" +
 	"\rSubtitleTrack\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x14\n" +
@@ -1305,7 +1905,41 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\")\n" +
 	"\bDownload\x12\x1d\n" +
 	"\n" +
-	"content_id\x18\x01 \x01(\tR\tcontentIdB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"content_id\x18\x01 \x01(\tR\tcontentId\"*\n" +
+	"\tJoinParty\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\"\x8c\x01\n" +
+	"\fPartyWelcome\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12-\n" +
+	"\ainitial\x18\x02 \x01(\v2\x13.peer.v1.PartyStateR\ainitial\x122\n" +
+	"\baudience\x18\x03 \x01(\v2\x16.peer.v1.PartyAudienceR\baudience\"j\n" +
+	"\vPartyInvite\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\x12\x19\n" +
+	"\bparty_id\x18\x02 \x01(\tR\apartyId\x12!\n" +
+	"\fhost_display\x18\x03 \x01(\tR\vhostDisplay\"\xac\x01\n" +
+	"\n" +
+	"PartyState\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x18\n" +
+	"\aplaying\x18\x02 \x01(\bR\aplaying\x12\x1f\n" +
+	"\vposition_ms\x18\x03 \x01(\x03R\n" +
+	"positionMs\x12\"\n" +
+	"\rhost_clock_ms\x18\x04 \x01(\x03R\vhostClockMs\x12\x12\n" +
+	"\x04rate\x18\x05 \x01(\x01R\x04rate\x12\x10\n" +
+	"\x03seq\x18\x06 \x01(\x04R\x03seq\"]\n" +
+	"\rPartyAudience\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x121\n" +
+	"\amembers\x18\x02 \x03(\v2\x17.peer.v1.AudienceMemberR\amembers\"L\n" +
+	"\x0eAudienceMember\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\"'\n" +
+	"\n" +
+	"LeaveParty\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\"?\n" +
+	"\n" +
+	"PartyEnded\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reasonB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -1320,26 +1954,34 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
-	(Error_Status)(0),     // 0: peer.v1.Error.Status
-	(*Envelope)(nil),      // 1: peer.v1.Envelope
-	(*Handshake)(nil),     // 2: peer.v1.Handshake
-	(*Ping)(nil),          // 3: peer.v1.Ping
-	(*Pong)(nil),          // 4: peer.v1.Pong
-	(*Browse)(nil),        // 5: peer.v1.Browse
-	(*Catalog)(nil),       // 6: peer.v1.Catalog
-	(*GetMetadata)(nil),   // 7: peer.v1.GetMetadata
-	(*TitleMeta)(nil),     // 8: peer.v1.TitleMeta
-	(*SubtitleTrack)(nil), // 9: peer.v1.SubtitleTrack
-	(*RequestAccess)(nil), // 10: peer.v1.RequestAccess
-	(*AccessGranted)(nil), // 11: peer.v1.AccessGranted
-	(*Ack)(nil),           // 12: peer.v1.Ack
-	(*Error)(nil),         // 13: peer.v1.Error
-	(*GetPlaylist)(nil),   // 14: peer.v1.GetPlaylist
-	(*Playlist)(nil),      // 15: peer.v1.Playlist
-	(*GetSegment)(nil),    // 16: peer.v1.GetSegment
-	(*Download)(nil),      // 17: peer.v1.Download
+	(Error_Status)(0),      // 0: peer.v1.Error.Status
+	(*Envelope)(nil),       // 1: peer.v1.Envelope
+	(*Handshake)(nil),      // 2: peer.v1.Handshake
+	(*Ping)(nil),           // 3: peer.v1.Ping
+	(*Pong)(nil),           // 4: peer.v1.Pong
+	(*Browse)(nil),         // 5: peer.v1.Browse
+	(*Catalog)(nil),        // 6: peer.v1.Catalog
+	(*GetMetadata)(nil),    // 7: peer.v1.GetMetadata
+	(*TitleMeta)(nil),      // 8: peer.v1.TitleMeta
+	(*SubtitleTrack)(nil),  // 9: peer.v1.SubtitleTrack
+	(*RequestAccess)(nil),  // 10: peer.v1.RequestAccess
+	(*AccessGranted)(nil),  // 11: peer.v1.AccessGranted
+	(*Ack)(nil),            // 12: peer.v1.Ack
+	(*Error)(nil),          // 13: peer.v1.Error
+	(*GetPlaylist)(nil),    // 14: peer.v1.GetPlaylist
+	(*Playlist)(nil),       // 15: peer.v1.Playlist
+	(*GetSegment)(nil),     // 16: peer.v1.GetSegment
+	(*Download)(nil),       // 17: peer.v1.Download
+	(*JoinParty)(nil),      // 18: peer.v1.JoinParty
+	(*PartyWelcome)(nil),   // 19: peer.v1.PartyWelcome
+	(*PartyInvite)(nil),    // 20: peer.v1.PartyInvite
+	(*PartyState)(nil),     // 21: peer.v1.PartyState
+	(*PartyAudience)(nil),  // 22: peer.v1.PartyAudience
+	(*AudienceMember)(nil), // 23: peer.v1.AudienceMember
+	(*LeaveParty)(nil),     // 24: peer.v1.LeaveParty
+	(*PartyEnded)(nil),     // 25: peer.v1.PartyEnded
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
@@ -1357,14 +1999,24 @@ var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	15, // 12: peer.v1.Envelope.playlist:type_name -> peer.v1.Playlist
 	16, // 13: peer.v1.Envelope.get_segment:type_name -> peer.v1.GetSegment
 	17, // 14: peer.v1.Envelope.download:type_name -> peer.v1.Download
-	8,  // 15: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
-	9,  // 16: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
-	0,  // 17: peer.v1.Error.status:type_name -> peer.v1.Error.Status
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	18, // 15: peer.v1.Envelope.join_party:type_name -> peer.v1.JoinParty
+	19, // 16: peer.v1.Envelope.party_welcome:type_name -> peer.v1.PartyWelcome
+	20, // 17: peer.v1.Envelope.party_invite:type_name -> peer.v1.PartyInvite
+	21, // 18: peer.v1.Envelope.party_state:type_name -> peer.v1.PartyState
+	22, // 19: peer.v1.Envelope.party_audience:type_name -> peer.v1.PartyAudience
+	24, // 20: peer.v1.Envelope.leave_party:type_name -> peer.v1.LeaveParty
+	25, // 21: peer.v1.Envelope.party_ended:type_name -> peer.v1.PartyEnded
+	8,  // 22: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 23: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 24: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	21, // 25: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
+	22, // 26: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
+	23, // 27: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -1388,6 +2040,13 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_Playlist_)(nil),
 		(*Envelope_GetSegment)(nil),
 		(*Envelope_Download)(nil),
+		(*Envelope_JoinParty)(nil),
+		(*Envelope_PartyWelcome)(nil),
+		(*Envelope_PartyInvite)(nil),
+		(*Envelope_PartyState)(nil),
+		(*Envelope_PartyAudience)(nil),
+		(*Envelope_LeaveParty)(nil),
+		(*Envelope_PartyEnded)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1395,7 +2054,7 @@ func file_proto_peer_v1_peer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
