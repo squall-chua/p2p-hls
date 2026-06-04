@@ -2,13 +2,16 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
 	"github.com/pion/webrtc/v4"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/squall-chua/p2p-hls/internal/signaling"
+	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
 // Node is a running app instance: a signaling client plus its peer sessions.
@@ -19,6 +22,7 @@ type Node struct {
 
 	mu       sync.Mutex
 	sessions map[identity.NodeID]*peer.Session
+	catalog  *catalog.Service
 }
 
 // relaySignaler adapts the signaling client to peer.Signaler.
@@ -83,6 +87,9 @@ func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session
 		return nil, err
 	}
 	n.sessions[remote] = s
+	if n.catalog != nil {
+		s.SetHandler(n.catalog)
+	}
 	if !initiator {
 		_ = s.Start(context.Background(), false)
 	}
@@ -115,6 +122,73 @@ func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// SetCatalog installs the Service that answers inbound browse RPCs. Existing and
+// future sessions use it as their request handler.
+func (n *Node) SetCatalog(svc *catalog.Service) {
+	n.mu.Lock()
+	n.catalog = svc
+	for _, s := range n.sessions {
+		s.SetHandler(svc)
+	}
+	n.mu.Unlock()
+}
+
+// Browse returns the remote Host's Catalog.
+func (n *Node) Browse(ctx context.Context, remote identity.NodeID) ([]*peerv1.TitleMeta, error) {
+	sess, err := n.session(ctx, remote)
+	if err != nil {
+		return nil, err
+	}
+	return sess.Browse(ctx)
+}
+
+// RequestAccess asks the remote Host to allow this Node.
+func (n *Node) RequestAccess(ctx context.Context, remote identity.NodeID, message string) error {
+	sess, err := n.session(ctx, remote)
+	if err != nil {
+		return err
+	}
+	return sess.RequestAccess(ctx, message)
+}
+
+// PendingRequests lists Node IDs awaiting our approval.
+func (n *Node) PendingRequests() []identity.NodeID {
+	n.mu.Lock()
+	svc := n.catalog
+	n.mu.Unlock()
+	if svc == nil {
+		return nil
+	}
+	return svc.Requests().List()
+}
+
+// ApproveAccess allows remote, then notifies it via AccessGranted.
+func (n *Node) ApproveAccess(remote identity.NodeID) error {
+	n.mu.Lock()
+	svc := n.catalog
+	sess := n.sessions[remote]
+	n.mu.Unlock()
+	if svc == nil {
+		return fmt.Errorf("app: no catalog installed")
+	}
+	svc.Approve(remote)
+	if sess != nil {
+		return sess.SendAccessGranted()
+	}
+	return nil
+}
+
+// session returns a ready session to remote, dialing if necessary.
+func (n *Node) session(ctx context.Context, remote identity.NodeID) (*peer.Session, error) {
+	n.mu.Lock()
+	s, ok := n.sessions[remote]
+	n.mu.Unlock()
+	if ok {
+		return s, nil
+	}
+	return n.Dial(ctx, remote)
 }
 
 // Close shuts the node down.

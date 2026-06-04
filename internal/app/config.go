@@ -11,16 +11,22 @@ import (
 
 // Config is the Node's settings, loaded from config.toml.
 type Config struct {
-	DisplayName  string   `toml:"display_name"`
-	SignalingURL string   `toml:"signaling_url"`
-	STUNServers  []string `toml:"stun_servers"`
+	DisplayName       string   `toml:"display_name"`
+	SignalingURL      string   `toml:"signaling_url"`
+	STUNServers       []string `toml:"stun_servers"`
+	SharedFolders     []string `toml:"shared_folders"`
+	DefaultVisibility string   `toml:"default_visibility"` // "restricted" | "public"
+	AllowList         []string `toml:"allow_list"`
+	BlockList         []string `toml:"block_list"`
+	DataDir           string   `toml:"data_dir"`
 }
 
 func defaults() Config {
 	return Config{
-		DisplayName:  "anonymous",
-		SignalingURL: "ws://localhost:8080/ws",
-		STUNServers:  []string{"stun:stun.l.google.com:19302"},
+		DisplayName:       "anonymous",
+		SignalingURL:      "ws://localhost:8080/ws",
+		STUNServers:       []string{"stun:stun.l.google.com:19302"},
+		DefaultVisibility: "restricted",
 	}
 }
 

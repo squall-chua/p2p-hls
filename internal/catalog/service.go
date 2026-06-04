@@ -57,6 +57,15 @@ func (s *Service) RequestAccess(remote identity.NodeID, message string) error {
 	return nil
 }
 
+// Requests exposes the pending-request register.
+func (s *Service) Requests() *Requests { return s.reqs }
+
+// Approve allows the Node and clears its pending request.
+func (s *Service) Approve(node identity.NodeID) {
+	s.reqs.Take(node)
+	s.policy.AddAllow(node)
+}
+
 func toMeta(t library.Title) *peerv1.TitleMeta {
 	m := &peerv1.TitleMeta{
 		ContentId:     t.ContentID,
