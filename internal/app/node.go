@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/squall-chua/p2p-hls/internal/signaling"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
@@ -23,6 +25,7 @@ type Node struct {
 	mu       sync.Mutex
 	sessions map[identity.NodeID]*peer.Session
 	catalog  *catalog.Service
+	media    *media.Service
 }
 
 // relaySignaler adapts the signaling client to peer.Signaler.
@@ -90,6 +93,9 @@ func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session
 	if n.catalog != nil {
 		s.SetHandler(n.catalog)
 	}
+	if n.media != nil {
+		s.SetMediaHandler(n.media)
+	}
 	if !initiator {
 		_ = s.Start(context.Background(), false)
 	}
@@ -133,6 +139,50 @@ func (n *Node) SetCatalog(svc *catalog.Service) {
 		s.SetHandler(svc)
 	}
 	n.mu.Unlock()
+}
+
+// SetMedia installs the streaming handler on existing and future sessions.
+func (n *Node) SetMedia(svc *media.Service) {
+	n.mu.Lock()
+	n.media = svc
+	for _, s := range n.sessions {
+		s.SetMediaHandler(svc)
+	}
+	n.mu.Unlock()
+}
+
+// Playlist implements bridge.Streamer.
+func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	sess, err := n.session(ctx, host)
+	if err != nil {
+		return nil, "", err
+	}
+	data, ct, _, err := sess.GetPlaylist(ctx, contentID, name)
+	return data, ct, err
+}
+
+// Segment implements bridge.Streamer.
+func (n *Node) Segment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	sess, err := n.session(ctx, host)
+	if err != nil {
+		return nil, "", err
+	}
+	data, err := sess.GetSegment(ctx, contentID, name)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, contentTypeFor(name), nil
+}
+
+func contentTypeFor(name string) string {
+	switch {
+	case strings.HasSuffix(name, ".ts"):
+		return "video/mp2t"
+	case strings.HasSuffix(name, ".vtt"):
+		return "text/vtt"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // Browse returns the remote Host's Catalog.

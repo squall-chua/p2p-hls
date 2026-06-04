@@ -1,9 +1,12 @@
 package peer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"sync"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 	"github.com/squall-chua/p2p-hls/internal/identity"
@@ -36,6 +39,11 @@ type Session struct {
 
 	handler         RequestHandler
 	onAccessGranted func(identity.NodeID)
+
+	bulk         *webrtc.DataChannel
+	bulkSinks    map[uint64]*bulkSink
+	mediaHandler MediaHandler
+	lowSig       chan struct{}
 }
 
 // NewSession builds a Session and its underlying PeerConnection.
@@ -49,13 +57,18 @@ func NewSession(self *identity.Identity, remote identity.NodeID, cfg webrtc.Conf
 		remote:   remote,
 		signaler: sig,
 		pc:       pc,
-		pending:  make(map[uint64]chan *peerv1.Envelope),
-		ready:    make(chan struct{}),
+		pending:   make(map[uint64]chan *peerv1.Envelope),
+		ready:     make(chan struct{}),
+		bulkSinks: make(map[uint64]*bulkSink),
+		lowSig:    make(chan struct{}, 1),
 	}
 	// Answerer receives channels created by the initiator.
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
-		if dc.Label() == "control" {
+		switch dc.Label() {
+		case "control":
 			s.bindControl(dc)
+		case "bulk":
+			s.bindBulk(dc)
 		}
 	})
 	return s, nil
@@ -71,9 +84,11 @@ func (s *Session) Start(ctx context.Context, initiator bool) error {
 		return err
 	}
 	s.bindControl(control)
-	if _, err := s.pc.CreateDataChannel("bulk", nil); err != nil { // opened now, used in Slice 3
+	bulk, err := s.pc.CreateDataChannel("bulk", nil)
+	if err != nil {
 		return err
 	}
+	s.bindBulk(bulk)
 	offer, err := s.pc.CreateOffer(nil)
 	if err != nil {
 		return err
@@ -164,8 +179,23 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			if fn != nil {
 				fn(s.remote)
 			}
+		case *peerv1.Envelope_GetPlaylist:
+			s.handleGetPlaylist(env.RequestId, body.GetPlaylist)
+		case *peerv1.Envelope_GetSegment:
+			s.handleGetSegment(env.RequestId, body.GetSegment)
+		case *peerv1.Envelope_Download:
+			s.handleDownload(env.RequestId, body.Download)
+		case *peerv1.Envelope_Error:
+			s.mu.Lock()
+			sink := s.bulkSinks[env.RequestId]
+			s.mu.Unlock()
+			if sink != nil {
+				s.signalSink(sink, statusErr(body.Error))
+			} else {
+				s.deliver(env)
+			}
 		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
-			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Error:
+			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_:
 			s.deliver(env)
 		}
 	})
@@ -347,4 +377,246 @@ func (s *Session) handleRequestAccess(reqID uint64, message string) {
 		return
 	}
 	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_Ack{Ack: &peerv1.Ack{}}})
+}
+
+// bulkSink accumulates an inbound bulk transfer (segment buffer or download writer).
+type bulkSink struct {
+	w    io.Writer
+	done chan error
+}
+
+// signalSink delivers a terminal result to a bulk sink without ever blocking the
+// readLoop (done is cap-1; only one terminal result is expected per request).
+func (s *Session) signalSink(sink *bulkSink, err error) {
+	select {
+	case sink.done <- err:
+	default:
+	}
+}
+
+// failSink unregisters the sink and signals it with an error.
+func (s *Session) failSink(id uint64, sink *bulkSink, err error) {
+	s.mu.Lock()
+	delete(s.bulkSinks, id)
+	s.mu.Unlock()
+	s.signalSink(sink, err)
+}
+
+func (s *Session) bindBulk(dc *webrtc.DataChannel) {
+	s.mu.Lock()
+	s.bulk = dc
+	s.mu.Unlock()
+	dc.SetBufferedAmountLowThreshold(bulkLowWater)
+	dc.OnBufferedAmountLow(func() {
+		select {
+		case s.lowSig <- struct{}{}:
+		default:
+		}
+	})
+	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		// payload aliases msg.Data; consume it synchronously here.
+		//
+		// Late-frame safety: a bulk frame arriving after its sink was torn down by
+		// a control-channel Error (or ctx cancel) is harmless. On success, this
+		// goroutine sends the terminal signal only AFTER its final write and the
+		// host emits no frames past `last`, so the caller's fetchBulk buffer read
+		// happens-after all writes. On error, fetchBulk returns nil WITHOUT reading
+		// the buffer, and the download path's writer is an *os.File whose Write/Close
+		// are internally synchronized — so a straggler frame can never race an
+		// observable read. Once cleanup deletes the sink, the lookup below returns nil.
+		id, _, last, payload, ok := decodeBulkFrame(msg.Data)
+		if !ok {
+			return
+		}
+		s.mu.Lock()
+		sink := s.bulkSinks[id]
+		s.mu.Unlock()
+		if sink == nil {
+			return
+		}
+		if len(payload) > 0 {
+			if _, werr := sink.w.Write(payload); werr != nil {
+				s.failSink(id, sink, werr)
+				return
+			}
+		}
+		if last {
+			s.signalSink(sink, nil)
+		}
+	})
+}
+
+// fetchBulkTo issues a bulk request and streams the response into w.
+func (s *Session) fetchBulkTo(ctx context.Context, env *peerv1.Envelope, w io.Writer) error {
+	id := s.ids.next()
+	env.RequestId = id
+	sink := &bulkSink{w: w, done: make(chan error, 1)}
+	s.mu.Lock()
+	s.bulkSinks[id] = sink
+	s.mu.Unlock()
+	cleanup := func() {
+		s.mu.Lock()
+		delete(s.bulkSinks, id)
+		s.mu.Unlock()
+	}
+	if err := s.send(env); err != nil {
+		cleanup()
+		return err
+	}
+	select {
+	case err := <-sink.done:
+		cleanup()
+		return err
+	case <-ctx.Done():
+		cleanup()
+		return ctx.Err()
+	}
+}
+
+// fetchBulk buffers a bulk response in memory (for segments).
+func (s *Session) fetchBulk(ctx context.Context, env *peerv1.Envelope) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := s.fetchBulkTo(ctx, env, &buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (s *Session) sendBulkReader(reqID uint64, r io.Reader) error {
+	buf := make([]byte, payloadMax)
+	var seq uint32
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			if werr := s.sendFrameFlow(reqID, seq, false, buf[:n]); werr != nil {
+				return werr
+			}
+			seq++
+		}
+		if err == io.EOF {
+			return s.sendFrameFlow(reqID, seq, true, nil)
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (s *Session) sendBulk(reqID uint64, data []byte) error {
+	return s.sendBulkReader(reqID, bytes.NewReader(data))
+}
+
+func (s *Session) sendFrameFlow(reqID uint64, seq uint32, last bool, payload []byte) error {
+	s.mu.Lock()
+	bulk := s.bulk
+	s.mu.Unlock()
+	if bulk == nil {
+		return fmt.Errorf("peer: bulk channel not open")
+	}
+	for bulk.BufferedAmount() > bulkHighWater {
+		timer := time.NewTimer(10 * time.Second)
+		select {
+		case <-s.lowSig:
+			timer.Stop()
+		case <-timer.C:
+			return fmt.Errorf("peer: bulk backpressure timeout")
+		}
+	}
+	return bulk.Send(encodeBulkFrame(reqID, seq, last, payload))
+}
+
+// MediaHandler answers streaming RPCs. Installed per Session by the app layer.
+type MediaHandler interface {
+	Playlist(remote identity.NodeID, contentID, name string) (data []byte, contentType string, complete bool, err error)
+	Segment(remote identity.NodeID, contentID, name string) ([]byte, error)
+	OpenFile(remote identity.NodeID, contentID string) (io.ReadCloser, int64, error)
+}
+
+// SetMediaHandler installs the streaming handler.
+func (s *Session) SetMediaHandler(h MediaHandler) {
+	s.mu.Lock()
+	s.mediaHandler = h
+	s.mu.Unlock()
+}
+
+// currentMediaHandler returns the installed media handler under lock.
+func (s *Session) currentMediaHandler() MediaHandler {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.mediaHandler
+}
+
+// GetPlaylist fetches a named playlist.
+func (s *Session) GetPlaylist(ctx context.Context, contentID, name string) ([]byte, string, bool, error) {
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_GetPlaylist{GetPlaylist: &peerv1.GetPlaylist{ContentId: contentID, Name: name}}})
+	if err != nil {
+		return nil, "", false, err
+	}
+	if e := resp.GetError(); e != nil {
+		return nil, "", false, statusErr(e)
+	}
+	p := resp.GetPlaylist_()
+	return p.GetData(), p.GetContentType(), p.GetComplete(), nil
+}
+
+// GetSegment fetches a named segment over the bulk channel.
+func (s *Session) GetSegment(ctx context.Context, contentID, name string) ([]byte, error) {
+	return s.fetchBulk(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_GetSegment{GetSegment: &peerv1.GetSegment{ContentId: contentID, Name: name}}})
+}
+
+// DownloadTo streams the original file bytes into w.
+func (s *Session) DownloadTo(ctx context.Context, contentID string, w io.Writer) error {
+	return s.fetchBulkTo(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_Download{Download: &peerv1.Download{ContentId: contentID}}}, w)
+}
+
+func (s *Session) handleGetPlaylist(reqID uint64, req *peerv1.GetPlaylist) {
+	h := s.currentMediaHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	data, ct, complete, err := h.Playlist(s.remote, req.GetContentId(), req.GetName())
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_Playlist_{Playlist_: &peerv1.Playlist{
+		Data: data, ContentType: ct, Complete: complete,
+	}}})
+}
+
+// TODO(slice-4): handleGetSegment/handleDownload run inline on the control readLoop
+// and can block under bulk backpressure, stalling other control messages during a
+// transfer. Dispatch these to a worker goroutine when multi-stream support lands.
+func (s *Session) handleGetSegment(reqID uint64, req *peerv1.GetSegment) {
+	h := s.currentMediaHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	data, err := h.Segment(s.remote, req.GetContentId(), req.GetName())
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	if serr := s.sendBulk(reqID, data); serr != nil {
+		_ = s.send(errEnvelope(reqID, serr))
+	}
+}
+
+func (s *Session) handleDownload(reqID uint64, req *peerv1.Download) {
+	h := s.currentMediaHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	rc, _, err := h.OpenFile(s.remote, req.GetContentId())
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	defer rc.Close()
+	if serr := s.sendBulkReader(reqID, rc); serr != nil {
+		_ = s.send(errEnvelope(reqID, serr))
+	}
 }
