@@ -56,3 +56,52 @@ func TestClientConnectsRegistersAndRelays(t *testing.T) {
 		t.Fatal("B never received the relay")
 	}
 }
+
+func TestRelaysClosesOnDisconnect(t *testing.T) {
+	wsURL := clientServerURL(t)
+	id, _ := identity.Generate()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, err := signaling.Dial(ctx, wsURL, id, "alice")
+	require.NoError(t, err)
+	require.NoError(t, c.Close())
+	select {
+	case _, ok := <-c.Relays():
+		require.False(t, ok, "relays channel must be closed after Close()")
+	case <-time.After(2 * time.Second):
+		t.Fatal("relays channel did not close after Close()")
+	}
+}
+
+func TestPresenceLeaveRemovesPeer(t *testing.T) {
+	wsURL := clientServerURL(t)
+	idA, _ := identity.Generate()
+	idB, _ := identity.Generate()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ca, err := signaling.Dial(ctx, wsURL, idA, "alice")
+	require.NoError(t, err)
+	defer ca.Close()
+	cb, err := signaling.Dial(ctx, wsURL, idB, "bob")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		for _, p := range ca.Peers() {
+			if p.NodeID == string(idB.NodeID()) {
+				return true
+			}
+		}
+		return false
+	}, 2*time.Second, 20*time.Millisecond)
+
+	require.NoError(t, cb.Close())
+
+	require.Eventually(t, func() bool {
+		for _, p := range ca.Peers() {
+			if p.NodeID == string(idB.NodeID()) {
+				return false
+			}
+		}
+		return true
+	}, 2*time.Second, 20*time.Millisecond)
+}

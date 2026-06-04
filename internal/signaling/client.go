@@ -12,13 +12,13 @@ import (
 // Client is a Node's connection to the signaling server.
 type Client struct {
 	conn   *websocket.Conn
-	self   identity.NodeID
 	relays chan Relay
+	done   chan struct{}
 
-	mu      sync.RWMutex
-	peers   map[string]PeerInfo
-	closed  bool
-	writeMu sync.Mutex
+	mu        sync.RWMutex
+	peers     map[string]PeerInfo
+	writeMu   sync.Mutex
+	closeOnce sync.Once
 }
 
 // Dial connects, completes challenge/register, and starts the read loop.
@@ -31,7 +31,7 @@ func Dial(ctx context.Context, url string, id *identity.Identity, displayName st
 	_, raw, err := conn.ReadMessage()
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return nil, fmt.Errorf("read challenge: %w", err)
 	}
 	typ, env, err := Unmarshal(raw)
 	if err != nil || typ != TypeChallenge {
@@ -54,7 +54,7 @@ func Dial(ctx context.Context, url string, id *identity.Identity, displayName st
 	_, raw, err = conn.ReadMessage()
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return nil, fmt.Errorf("read snapshot: %w", err)
 	}
 	typ, env, err = Unmarshal(raw)
 	if err != nil || typ != TypePresenceSnapshot {
@@ -64,8 +64,8 @@ func Dial(ctx context.Context, url string, id *identity.Identity, displayName st
 
 	c := &Client{
 		conn:   conn,
-		self:   id.NodeID(),
 		relays: make(chan Relay, 32),
+		done:   make(chan struct{}),
 		peers:  make(map[string]PeerInfo),
 	}
 	for _, p := range env.(*PresenceSnapshot).Peers {
@@ -76,13 +76,10 @@ func Dial(ctx context.Context, url string, id *identity.Identity, displayName st
 }
 
 func (c *Client) readLoop() {
+	defer close(c.relays)
 	for {
 		_, raw, err := c.conn.ReadMessage()
 		if err != nil {
-			c.mu.Lock()
-			c.closed = true
-			c.mu.Unlock()
-			close(c.relays)
 			return
 		}
 		typ, env, err := Unmarshal(raw)
@@ -100,7 +97,11 @@ func (c *Client) readLoop() {
 			delete(c.peers, env.(*PresenceLeave).NodeID)
 			c.mu.Unlock()
 		case TypeRelay:
-			c.relays <- *env.(*Relay)
+			select {
+			case c.relays <- *env.(*Relay):
+			case <-c.done:
+				return // shutting down; abandon the in-flight relay
+			}
 		}
 	}
 }
@@ -130,5 +131,8 @@ func (c *Client) SendRelay(to identity.NodeID, payload []byte) error {
 	return c.conn.WriteMessage(websocket.TextMessage, b)
 }
 
-// Close shuts the connection.
-func (c *Client) Close() error { return c.conn.Close() }
+// Close shuts the connection. Safe to call multiple times.
+func (c *Client) Close() error {
+	c.closeOnce.Do(func() { close(c.done) })
+	return c.conn.Close()
+}
