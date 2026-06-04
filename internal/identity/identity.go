@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,9 +42,12 @@ func LoadOrCreate(path string) (*Identity, error) {
 			return nil, fmt.Errorf("identity file %s: bad seed length %d", path, len(seed))
 		}
 		priv := ed25519.NewKeyFromSeed(seed)
-		pub := priv.Public().(ed25519.PublicKey)
+		pub, ok := priv.Public().(ed25519.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("identity file %s: unexpected public key type", path)
+		}
 		return &Identity{priv: priv, pub: pub, id: NodeIDFromPublicKey(pub)}, nil
-	case os.IsNotExist(err):
+	case errors.Is(err, fs.ErrNotExist):
 		id, gerr := Generate()
 		if gerr != nil {
 			return nil, gerr
@@ -63,7 +68,11 @@ func LoadOrCreate(path string) (*Identity, error) {
 func (i *Identity) NodeID() NodeID { return i.id }
 
 // PublicKey returns the Node's Ed25519 public key.
-func (i *Identity) PublicKey() ed25519.PublicKey { return i.pub }
+func (i *Identity) PublicKey() ed25519.PublicKey {
+	cp := make(ed25519.PublicKey, len(i.pub))
+	copy(cp, i.pub)
+	return cp
+}
 
 // Sign signs msg with the Node's private key.
 func (i *Identity) Sign(msg []byte) []byte { return ed25519.Sign(i.priv, msg) }

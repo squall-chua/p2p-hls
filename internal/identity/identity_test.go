@@ -1,6 +1,7 @@
 package identity_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -22,6 +23,10 @@ func TestSignVerifyRoundTrip(t *testing.T) {
 	sig := id.Sign(msg)
 	require.True(t, identity.Verify(id.PublicKey(), msg, sig))
 	require.False(t, identity.Verify(id.PublicKey(), []byte("tampered"), sig))
+
+	other, err := identity.Generate()
+	require.NoError(t, err)
+	require.False(t, identity.Verify(other.PublicKey(), msg, sig))
 }
 
 func TestLoadOrCreatePersistsIdentity(t *testing.T) {
@@ -31,4 +36,8 @@ func TestLoadOrCreatePersistsIdentity(t *testing.T) {
 	second, err := identity.LoadOrCreate(path)
 	require.NoError(t, err)
 	require.Equal(t, first.NodeID(), second.NodeID(), "reloading must yield the same identity")
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }
