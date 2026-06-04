@@ -87,7 +87,7 @@ PartyEnded   party_ended    = 23;  // host→viewers: {string party_id, string r
 The viewer anchors on its *own* receive time:
 - Measures `RTT` via periodic Ping/Pong; one-way delay `owd ≈ RTT/2` (capped to reject spikes).
 - On receiving a `PartyState`, records `recvAt` (viewer monotonic clock) plus the state.
-- Expected host position **now**: `H = position_ms + owd + (playing ? (now − recvAt) : 0)`.
+- Expected host position **now**: `H = playing ? position_ms + owd + (now − recvAt) : position_ms`. (When paused the host is not advancing, so `owd` is irrelevant and `H` is exactly the reported position.)
 
 This avoids absolute clock synchronisation entirely — only RTT matters. If integration tests show RTT/2 is too coarse for the target band, the documented fallback is to echo the host clock in `Pong` for true NTP-style offset estimation (noted, not built in this slice).
 

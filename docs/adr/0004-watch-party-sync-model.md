@@ -24,8 +24,10 @@ The Host's playback is the single source of truth. It broadcasts a `PartyState` 
 A Viewer does not synchronize clocks with the Host. It estimates one-way delay `owd ≈ RTT/2` (from the existing `Ping`/`Pong`, capped to reject spikes); on receiving a `PartyState` it records its **own** monotonic `recvAt`; and computes the expected Host position now as:
 
 ```
-H = position_ms + owd + (playing ? (now − recvAt) : 0)
+H = playing ? (position_ms + owd + (now − recvAt)) : position_ms
 ```
+
+(When the Host is paused it is not advancing, so `owd` is irrelevant and the expected position is exactly the reported `position_ms`.)
 
 **Why:**
 - It avoids NTP-style offset machinery entirely. Only RTT is needed, which `Ping`/`Pong` already provides.
