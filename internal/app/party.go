@@ -76,7 +76,7 @@ func (pc *partyCoordinator) EndParty(reason string) {
 	}
 }
 
-func (pc *partyCoordinator) beginViewer(host identity.NodeID, partyID string) {
+func (pc *partyCoordinator) beginViewer(host identity.NodeID) {
 	pc.mu.Lock()
 	pc.viewer = party.NewViewer(pc.clock, pc.cfg)
 	pc.viewerHost = host
@@ -91,7 +91,7 @@ func (pc *partyCoordinator) JoinParty(ctx context.Context, host identity.NodeID,
 	if err != nil {
 		return err
 	}
-	pc.beginViewer(host, w.GetPartyId())
+	pc.beginViewer(host)
 	if init := w.GetInitial(); init != nil {
 		pc.OnPartyState(host, init)
 	}
@@ -211,6 +211,22 @@ func (pc *partyCoordinator) viewerDecide(posMS int64, playing bool, now time.Tim
 	return v.Decide(posMS, playing, now)
 }
 
+// refreshViewerRTT measures the round trip to the current Host and feeds the
+// viewer engine a fresh one-way-delay estimate (ADR 0004's RTT/2 clock model).
+func (pc *partyCoordinator) refreshViewerRTT() {
+	pc.mu.Lock()
+	v, host, s := pc.viewer, pc.viewerHost, pc.send
+	pc.mu.Unlock()
+	if v == nil || s == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if rtt, err := s.measureRTT(ctx, host); err == nil {
+		v.OnRTT(rtt)
+	}
+}
+
 // --- wire conversions ---
 
 func toWireState(s party.State) *peerv1.PartyState {
@@ -303,7 +319,22 @@ func (pc *partyCoordinator) serveViewerWS(conn *websocket.Conn) {
 			}
 		}
 	}()
-	last := playerMsg{Type: "report"}
+	rttDone := make(chan struct{})
+	defer close(rttDone)
+	go func() {
+		pc.refreshViewerRTT() // immediate first estimate
+		tk := time.NewTicker(2 * time.Second)
+		defer tk.Stop()
+		for {
+			select {
+			case <-rttDone:
+				return
+			case <-tk.C:
+				pc.refreshViewerRTT()
+			}
+		}
+	}()
+	last := playerMsg{}
 	t := time.NewTicker(250 * time.Millisecond)
 	defer t.Stop()
 	for {

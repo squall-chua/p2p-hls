@@ -41,7 +41,7 @@ func TestCoordinatorHostLifecycleAndProvider(t *testing.T) {
 
 func TestCoordinatorViewerIngestsState(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("viewer"), party.RealClock(), party.DefaultConfig())
-	pc.beginViewer(identity.NodeID("host"), "p1")
+	pc.beginViewer(identity.NodeID("host"))
 	pc.OnPartyState(identity.NodeID("host"), &peerv1.PartyState{PartyId: "p1", Playing: false, PositionMs: 7_000, Seq: 1})
 
 	// The viewer engine should now want to seek a far-off player to 7_000.
