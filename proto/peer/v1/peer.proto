@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package peer.v1;
+
+option go_package = "github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1";
+
+// Envelope is one control-channel message. Each WebRTC data-channel send carries
+// exactly one Envelope (SCTP preserves message boundaries; no length prefix needed).
+message Envelope {
+  uint64 request_id = 1;
+  oneof body {
+    Handshake handshake = 2;
+    Ping ping = 3;
+    Pong pong = 4;
+  }
+}
+
+// Handshake is exchanged once when the control channel opens.
+message Handshake {
+  uint32 protocol_version = 1;
+  repeated string capabilities = 2;
+}
+
+message Ping { string nonce = 1; }
+message Pong { string nonce = 1; }
