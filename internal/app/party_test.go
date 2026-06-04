@@ -6,6 +6,7 @@ import (
 
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/party"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 	"github.com/stretchr/testify/require"
 )
@@ -37,6 +38,22 @@ func TestCoordinatorHostLifecycleAndProvider(t *testing.T) {
 	pc.OnLeaveParty(identity.NodeID("alice"), pid)
 	_, n = pc.LiveParty("cid")
 	require.Equal(t, 0, n)
+}
+
+func TestCoordinatorJoinDeniedByPolicy(t *testing.T) {
+	pc := newPartyCoordinator(nil, identity.NodeID("host"), party.RealClock(), party.DefaultConfig())
+	pc.StartParty("cid")
+	pc.setAllowed(func(n identity.NodeID) bool { return n == identity.NodeID("alice") })
+
+	_, err := pc.OnJoinParty(identity.NodeID("mallory"), "cid")
+	require.ErrorIs(t, err, peer.ErrDenied)
+
+	w, err := pc.OnJoinParty(identity.NodeID("alice"), "cid")
+	require.NoError(t, err)
+	require.NotEmpty(t, w.GetPartyId())
+
+	_, err = pc.OnJoinParty(identity.NodeID("alice"), "unknown")
+	require.ErrorIs(t, err, peer.ErrNotFound)
 }
 
 func TestCoordinatorViewerIngestsState(t *testing.T) {

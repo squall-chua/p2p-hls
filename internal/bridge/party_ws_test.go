@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/squall-chua/p2p-hls/internal/bridge"
@@ -47,5 +46,4 @@ func TestPartyWSRejectsBadToken(t *testing.T) {
 	_, resp, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {"http://127.0.0.1"}})
 	require.Error(t, err)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
-	_ = time.Second
 }

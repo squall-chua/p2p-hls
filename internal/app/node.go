@@ -167,6 +167,7 @@ func (n *Node) SetCatalog(svc *catalog.Service) {
 	}
 	n.mu.Unlock()
 	svc.SetPartyProvider(n.party)
+	n.party.setAllowed(svc.Allowed)
 }
 
 // SetMedia installs the streaming handler on existing and future sessions.

@@ -70,6 +70,10 @@ func (s *Service) RequestAccess(remote identity.NodeID, message string) error {
 // Requests exposes the pending-request register.
 func (s *Service) Requests() *Requests { return s.reqs }
 
+// Allowed reports whether node passes this catalog's access policy. Exposed so
+// other subsystems (e.g. watch-party admission) reuse the same decision.
+func (s *Service) Allowed(node identity.NodeID) bool { return s.policy.Allowed(node) }
+
 // Approve allows the Node and clears its pending request.
 func (s *Service) Approve(node identity.NodeID) {
 	s.reqs.Take(node)

@@ -3,13 +3,13 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/party"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
@@ -21,10 +21,11 @@ type sender interface {
 }
 
 type partyCoordinator struct {
-	send  sender
-	self  identity.NodeID
-	clock party.Clock
-	cfg   party.Config
+	send    sender
+	self    identity.NodeID
+	clock   party.Clock
+	cfg     party.Config
+	allowed func(identity.NodeID) bool
 
 	mu         sync.Mutex
 	host       *party.Host
@@ -39,11 +40,21 @@ func newPartyCoordinator(s sender, self identity.NodeID, clk party.Clock, cfg pa
 
 // --- entry points ---
 
+func (pc *partyCoordinator) setAllowed(fn func(identity.NodeID) bool) {
+	pc.mu.Lock()
+	pc.allowed = fn
+	pc.mu.Unlock()
+}
+
 // StartParty opens a Watch Party on contentID and returns the new party_id.
 // party_id is derived from the host node + content (stable, opaque to viewers).
 func (pc *partyCoordinator) StartParty(contentID string) string {
 	pid := string(pc.self) + ":" + contentID
 	pc.mu.Lock()
+	if pc.stopHB != nil {
+		close(pc.stopHB)
+		pc.stopHB = nil
+	}
 	pc.host = party.NewHost(pc.clock, pc.cfg, pid, contentID)
 	pc.stopHB = make(chan struct{})
 	stop := pc.stopHB
@@ -114,9 +125,13 @@ func (pc *partyCoordinator) LiveParty(contentID string) (bool, int) {
 func (pc *partyCoordinator) OnJoinParty(remote identity.NodeID, contentID string) (*peerv1.PartyWelcome, error) {
 	pc.mu.Lock()
 	h := pc.host
+	allowed := pc.allowed
 	pc.mu.Unlock()
 	if h == nil || h.ContentID() != contentID {
-		return nil, errors.New("no live party for content")
+		return nil, peer.ErrNotFound
+	}
+	if allowed != nil && !allowed(remote) {
+		return nil, peer.ErrDenied
 	}
 	h.Join(remote, string(remote))
 	pc.broadcastAudience(h)
@@ -151,11 +166,9 @@ func (pc *partyCoordinator) OnPartyState(remote identity.NodeID, s *peerv1.Party
 
 func (pc *partyCoordinator) OnPartyAudience(identity.NodeID, *peerv1.PartyAudience) {}
 
-func (pc *partyCoordinator) OnPartyInvite(remote identity.NodeID, inv *peerv1.PartyInvite) {
-	// Invite is a UI signal; recording it is enough for this slice. A real UI
-	// would surface it and let the user call JoinParty. No-op acceptance here.
-	_ = remote
-	_ = inv
+func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) {
+	// Invite is a UI signal; a real UI would surface it and let the user call
+	// JoinParty. No-op acceptance for this slice.
 }
 
 func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.PartyEnded) {
