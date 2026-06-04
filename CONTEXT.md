@@ -57,3 +57,13 @@ _Avoid_: tracker, broker, coordinator.
 **Presence**:
 The set of Nodes currently online and reachable via the Signaling server, with their Node IDs and public keys. A Node receives a snapshot on connect and incremental join/leave updates thereafter.
 _Avoid_: roster, online list.
+
+### Watch Party
+
+**Watch Party**:
+A Host playing one Title in sync for a set of Viewers. The Host's playback position is authoritative; the participating Viewers' playback follows it (play, pause, seek). A Viewer joins and leaves an active Watch Party without affecting the others. Only the Host drives playback.
+_Avoid_: session, room, screening, party (alone).
+
+**Audience**:
+The set of Viewers currently in a Watch Party. Narrower than Presence (which is global online Nodes) and local to one Host's Watch Party. The Host plays to the Audience but is not part of it.
+_Avoid_: roster, room, members.
