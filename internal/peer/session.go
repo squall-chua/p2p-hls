@@ -95,6 +95,7 @@ func (s *Session) HandleSignal(sig SignedSignal) error {
 		if err != nil {
 			return err
 		}
+		// TODO(slice-3): thread a real context here; the answerer's ICE gather currently has no timeout.
 		return s.setLocalAndSend(context.Background(), answer)
 	}
 	return nil
@@ -205,4 +206,5 @@ func (s *Session) Ping(ctx context.Context, nonce string) (string, error) {
 }
 
 // Close tears down the connection.
+// TODO(slice-3): cancel in-flight Pings (close a done channel) and tear down pending when Close gains real connection lifecycle management.
 func (s *Session) Close() error { return s.pc.Close() }
