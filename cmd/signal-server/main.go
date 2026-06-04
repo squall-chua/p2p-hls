@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/squall-chua/p2p-hls/internal/signalserver"
 )
@@ -18,5 +19,6 @@ func main() {
 	slog.Info("signaling server listening", "addr", *addr)
 	if err := http.ListenAndServe(*addr, nil); err != nil {
 		slog.Error("server exited", "err", err)
+		os.Exit(1)
 	}
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/pion/webrtc/v4"
@@ -60,28 +61,32 @@ func (n *Node) routeRelays() {
 		if err != nil {
 			continue
 		}
-		sess := n.sessionFor(from, false)
+		sess, err := n.sessionFor(from, false)
+		if err != nil {
+			slog.Warn("failed to create session for inbound relay", "from", from, "err", err)
+			continue
+		}
 		_ = sess.HandleSignal(sig)
 	}
 }
 
 // sessionFor returns the existing session for remote, or creates one. When
 // created as an answerer (initiator=false) it is started immediately.
-func (n *Node) sessionFor(remote identity.NodeID, initiator bool) *peer.Session {
+func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if s, ok := n.sessions[remote]; ok {
-		return s
+		return s, nil
 	}
 	s, err := peer.NewSession(n.self, remote, n.rtcCfg, relaySignaler{client: n.client})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	n.sessions[remote] = s
 	if !initiator {
 		_ = s.Start(context.Background(), false)
 	}
-	return s
+	return s, nil
 }
 
 // Sees reports whether remote is currently in presence.
@@ -95,8 +100,12 @@ func (n *Node) Sees(remote identity.NodeID) bool {
 }
 
 // Dial opens (or returns) a session to remote and blocks until it is ready.
+// NOTE(slice-3): if a session for remote was already created as an answerer, calling Start(true) here would double-negotiate (dial-vs-answer glare). Only one side dials in Slice 1; glare resolution is future work.
 func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session, error) {
-	sess := n.sessionFor(remote, true)
+	sess, err := n.sessionFor(remote, true)
+	if err != nil {
+		return nil, err
+	}
 	if err := sess.Start(ctx, true); err != nil {
 		return nil, err
 	}
@@ -109,6 +118,7 @@ func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session,
 }
 
 // Close shuts the node down.
+// NOTE(slice-3): relays already buffered in the client channel may drive routeRelays to create a session after Close returns; such a late session isn't tracked/closed here. Benign at process exit.
 func (n *Node) Close() error {
 	n.mu.Lock()
 	for _, s := range n.sessions {
