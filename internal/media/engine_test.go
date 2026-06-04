@@ -71,3 +71,34 @@ func TestEngineUnknownContentNotFound(t *testing.T) {
 	_, _, err := eng.File(context.Background(), "missing", "playlist.m3u8")
 	require.ErrorIs(t, err, peer.ErrNotFound)
 }
+
+// blockingRunner blocks in Run until released, so the job stays in-flight.
+type blockingRunner struct{ release chan struct{} }
+
+func (b *blockingRunner) Run(_ context.Context, _ []string) error {
+	<-b.release
+	return nil
+}
+
+func TestEngineSegmentNotReadyReturnsUnavailable(t *testing.T) {
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	src := filepath.Join(t.TempDir(), "movie.mp4")
+	require.NoError(t, os.WriteFile(src, []byte("x"), 0o600))
+	require.NoError(t, store.Upsert(library.Title{
+		ContentID: "cid", Path: src, VideoCodec: "h264", AudioCodecs: []string{"aac"},
+		Width: 1920, Height: 1080, HLSCompatible: true,
+	}))
+
+	br := &blockingRunner{release: make(chan struct{})}
+	eng := media.NewEngine(store, br, t.TempDir())
+
+	// The ffmpeg job is in-flight (runner blocked), so the segment isn't on disk
+	// and the job isn't complete: File must return ErrUnavailable ("not ready, retry"),
+	// NOT ErrNotFound and NOT a generic error.
+	_, _, err = eng.File(context.Background(), "cid", "seg00000.ts")
+	require.ErrorIs(t, err, peer.ErrUnavailable)
+
+	close(br.release) // release the job so its goroutine finishes
+}

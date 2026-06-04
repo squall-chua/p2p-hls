@@ -414,6 +414,16 @@ func (s *Session) bindBulk(dc *webrtc.DataChannel) {
 		}
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		// payload aliases msg.Data; consume it synchronously here.
+		//
+		// Late-frame safety: a bulk frame arriving after its sink was torn down by
+		// a control-channel Error (or ctx cancel) is harmless. On success, this
+		// goroutine sends the terminal signal only AFTER its final write and the
+		// host emits no frames past `last`, so the caller's fetchBulk buffer read
+		// happens-after all writes. On error, fetchBulk returns nil WITHOUT reading
+		// the buffer, and the download path's writer is an *os.File whose Write/Close
+		// are internally synchronized — so a straggler frame can never race an
+		// observable read. Once cleanup deletes the sink, the lookup below returns nil.
 		id, _, last, payload, ok := decodeBulkFrame(msg.Data)
 		if !ok {
 			return
