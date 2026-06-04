@@ -26,6 +26,7 @@ func TestEnvelopeRoundTrip(t *testing.T) {
 	require.Equal(t, in.NodeID, out.NodeID)
 	require.Equal(t, in.PublicKey, out.PublicKey)
 	require.Equal(t, in.DisplayName, out.DisplayName)
+	require.Equal(t, in.Signature, out.Signature)
 }
 
 func TestUnmarshalUnknownTypeErrors(t *testing.T) {
