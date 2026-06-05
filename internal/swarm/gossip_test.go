@@ -22,6 +22,16 @@ func TestGossipTargetsAreDeterministicForSeed(t *testing.T) {
 	require.Equal(t, mk().GossipTargets(), mk().GossipTargets()) // same seed => same picks
 }
 
+func TestGossipTargetsNeverExceedFanoutEvenIfRandomLinksLarger(t *testing.T) {
+	clk := &vclock{t: time.Unix(1_700_000_000, 0)}
+	cfg := DefaultConfig()
+	cfg.Fanout = 2
+	cfg.RandomLinks = 5 // misconfigured: more random links than fanout
+	s := New("self", clk, cfg, rand.New(rand.NewSource(1)))
+	s.SetPeers([]identity.NodeID{"a", "b", "c", "d", "e"})
+	require.LessOrEqual(t, len(s.GossipTargets()), 2)
+}
+
 func TestGossipTargetsRespectFanoutAndExcludeSelf(t *testing.T) {
 	clk := &vclock{t: time.Unix(1_700_000_000, 0)}
 	s := New("self", clk, DefaultConfig(), rand.New(rand.NewSource(7)))

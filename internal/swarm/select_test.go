@@ -22,6 +22,21 @@ func TestSelectSourcePicksLowestRTTHaver(t *testing.T) {
 	require.Equal(t, identity.NodeID("fast"), got)
 }
 
+func TestSelectSourceTieBreakIsLowestNodeID(t *testing.T) {
+	clk := &vclock{t: time.Unix(1_700_000_000, 0)}
+	for trial := 0; trial < 50; trial++ {
+		s := newAt(clk)
+		s.SetPeers([]identity.NodeID{"c", "a", "b"})
+		for _, id := range []identity.NodeID{"a", "b", "c"} {
+			s.OnPeerHave(id, 0, bitmapOf(7), 1, clk.Now())
+			s.OnRTT(id, 30*time.Millisecond) // all equal RTT
+		}
+		got, ok := s.SelectSource(7, clk.Now())
+		require.True(t, ok)
+		require.Equal(t, identity.NodeID("a"), got, "equal-RTT tie must deterministically pick lowest NodeID")
+	}
+}
+
 func TestSelectSourceSkipsBusyAndDemoted(t *testing.T) {
 	clk := &vclock{t: time.Unix(1_700_000_000, 0)}
 	s := newAt(clk)

@@ -1,5 +1,7 @@
 package swarm
 
+import "math"
+
 // SetHave records that this node holds Segment idx (cached + verified). Idempotent;
 // bumps the have epoch only when the set actually changes.
 func (s *Swarm) SetHave(idx int) {
@@ -37,7 +39,7 @@ func (s *Swarm) HaveMsg() (base uint32, bitmap []byte, epoch uint64) {
 	if len(s.have) == 0 {
 		return 0, nil, s.haveEpoch
 	}
-	min, max := 1<<31, 0
+	min, max := math.MaxInt, 0
 	for idx := range s.have {
 		if idx < min {
 			min = idx

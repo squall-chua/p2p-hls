@@ -69,7 +69,7 @@ func (s *Swarm) GossipTargets() []identity.NodeID {
 			pool = append(pool, id)
 		}
 	}
-	for i := 0; i < s.cfg.RandomLinks && len(pool) > 0; i++ {
+	for i := 0; i < s.cfg.RandomLinks && len(out) < s.cfg.Fanout && len(pool) > 0; i++ {
 		k := s.rng.Intn(len(pool))
 		out = append(out, pool[k])
 		pool = append(pool[:k], pool[k+1:]...)
@@ -103,7 +103,7 @@ func (s *Swarm) SelectSource(idx int, now time.Time) (identity.NodeID, bool) {
 		if !p.haveRTT {
 			rtt = time.Hour // deprioritize unmeasured peers
 		}
-		if !found || rtt < bestRTT {
+		if !found || rtt < bestRTT || (rtt == bestRTT && id < best) {
 			found = true
 			best = id
 			bestRTT = rtt
