@@ -29,6 +29,7 @@ const (
 	Error_NOT_FOUND          Error_Status = 2
 	Error_UNAVAILABLE        Error_Status = 3
 	Error_INTERNAL           Error_Status = 4
+	Error_BUSY               Error_Status = 5
 )
 
 // Enum value maps for Error_Status.
@@ -39,6 +40,7 @@ var (
 		2: "NOT_FOUND",
 		3: "UNAVAILABLE",
 		4: "INTERNAL",
+		5: "BUSY",
 	}
 	Error_Status_value = map[string]int32{
 		"STATUS_UNSPECIFIED": 0,
@@ -46,6 +48,7 @@ var (
 		"NOT_FOUND":          2,
 		"UNAVAILABLE":        3,
 		"INTERNAL":           4,
+		"BUSY":               5,
 	}
 )
 
@@ -105,6 +108,8 @@ type Envelope struct {
 	//	*Envelope_PartyAudience
 	//	*Envelope_LeaveParty
 	//	*Envelope_PartyEnded
+	//	*Envelope_SwarmHave
+	//	*Envelope_GetSwarmSegment
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -352,6 +357,24 @@ func (x *Envelope) GetPartyEnded() *PartyEnded {
 	return nil
 }
 
+func (x *Envelope) GetSwarmHave() *SwarmHave {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_SwarmHave); ok {
+			return x.SwarmHave
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetGetSwarmSegment() *GetSwarmSegment {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_GetSwarmSegment); ok {
+			return x.GetSwarmSegment
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -444,6 +467,14 @@ type Envelope_PartyEnded struct {
 	PartyEnded *PartyEnded `protobuf:"bytes,23,opt,name=party_ended,json=partyEnded,proto3,oneof"`
 }
 
+type Envelope_SwarmHave struct {
+	SwarmHave *SwarmHave `protobuf:"bytes,24,opt,name=swarm_have,json=swarmHave,proto3,oneof"`
+}
+
+type Envelope_GetSwarmSegment struct {
+	GetSwarmSegment *GetSwarmSegment `protobuf:"bytes,25,opt,name=get_swarm_segment,json=getSwarmSegment,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
@@ -487,6 +518,10 @@ func (*Envelope_PartyAudience) isEnvelope_Body() {}
 func (*Envelope_LeaveParty) isEnvelope_Body() {}
 
 func (*Envelope_PartyEnded) isEnvelope_Body() {}
+
+func (*Envelope_SwarmHave) isEnvelope_Body() {}
+
+func (*Envelope_GetSwarmSegment) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -1800,11 +1835,152 @@ func (x *PartyEnded) GetReason() string {
 	return ""
 }
 
+// SwarmHave is the gossip have-map: the windowed set of Segments the sender holds
+// for a party, as base_index + bitmap (bit i set => has Segment base_index+i).
+type SwarmHave struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Rendition     string                 `protobuf:"bytes,2,opt,name=rendition,proto3" json:"rendition,omitempty"`
+	BaseIndex     uint32                 `protobuf:"varint,3,opt,name=base_index,json=baseIndex,proto3" json:"base_index,omitempty"`
+	Bitmap        []byte                 `protobuf:"bytes,4,opt,name=bitmap,proto3" json:"bitmap,omitempty"`
+	Epoch         uint64                 `protobuf:"varint,5,opt,name=epoch,proto3" json:"epoch,omitempty"` // monotonic; receivers ignore lower-or-equal epochs
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SwarmHave) Reset() {
+	*x = SwarmHave{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SwarmHave) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SwarmHave) ProtoMessage() {}
+
+func (x *SwarmHave) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SwarmHave.ProtoReflect.Descriptor instead.
+func (*SwarmHave) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *SwarmHave) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *SwarmHave) GetRendition() string {
+	if x != nil {
+		return x.Rendition
+	}
+	return ""
+}
+
+func (x *SwarmHave) GetBaseIndex() uint32 {
+	if x != nil {
+		return x.BaseIndex
+	}
+	return 0
+}
+
+func (x *SwarmHave) GetBitmap() []byte {
+	if x != nil {
+		return x.Bitmap
+	}
+	return nil
+}
+
+func (x *SwarmHave) GetEpoch() uint64 {
+	if x != nil {
+		return x.Epoch
+	}
+	return 0
+}
+
+// GetSwarmSegment requests a cached Segment from a peer Viewer in the same party.
+// The bytes return on the bulk channel, correlated by request_id (like GetSegment).
+type GetSwarmSegment struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	Rendition     string                 `protobuf:"bytes,2,opt,name=rendition,proto3" json:"rendition,omitempty"`
+	SegName       string                 `protobuf:"bytes,3,opt,name=seg_name,json=segName,proto3" json:"seg_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSwarmSegment) Reset() {
+	*x = GetSwarmSegment{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSwarmSegment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSwarmSegment) ProtoMessage() {}
+
+func (x *GetSwarmSegment) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSwarmSegment.ProtoReflect.Descriptor instead.
+func (*GetSwarmSegment) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetSwarmSegment) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *GetSwarmSegment) GetRendition() string {
+	if x != nil {
+		return x.Rendition
+	}
+	return ""
+}
+
+func (x *GetSwarmSegment) GetSegName() string {
+	if x != nil {
+		return x.SegName
+	}
+	return ""
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xb0\t\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xad\n" +
+	"\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x04R\trequestId\x122\n" +
@@ -1836,7 +2012,10 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\vleave_party\x18\x16 \x01(\v2\x13.peer.v1.LeavePartyH\x00R\n" +
 	"leaveParty\x126\n" +
 	"\vparty_ended\x18\x17 \x01(\v2\x13.peer.v1.PartyEndedH\x00R\n" +
-	"partyEndedB\x06\n" +
+	"partyEnded\x123\n" +
+	"\n" +
+	"swarm_have\x18\x18 \x01(\v2\x12.peer.v1.SwarmHaveH\x00R\tswarmHave\x12F\n" +
+	"\x11get_swarm_segment\x18\x19 \x01(\v2\x18.peer.v1.GetSwarmSegmentH\x00R\x0fgetSwarmSegmentB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -1879,17 +2058,18 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\rRequestAccess\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x0f\n" +
 	"\rAccessGranted\"\x05\n" +
-	"\x03Ack\"\xaa\x01\n" +
+	"\x03Ack\"\xb4\x01\n" +
 	"\x05Error\x12-\n" +
 	"\x06status\x18\x01 \x01(\x0e2\x15.peer.v1.Error.StatusR\x06status\x12\x16\n" +
-	"\x06detail\x18\x02 \x01(\tR\x06detail\"Z\n" +
+	"\x06detail\x18\x02 \x01(\tR\x06detail\"d\n" +
 	"\x06Status\x12\x16\n" +
 	"\x12STATUS_UNSPECIFIED\x10\x00\x12\n" +
 	"\n" +
 	"\x06DENIED\x10\x01\x12\r\n" +
 	"\tNOT_FOUND\x10\x02\x12\x0f\n" +
 	"\vUNAVAILABLE\x10\x03\x12\f\n" +
-	"\bINTERNAL\x10\x04\"@\n" +
+	"\bINTERNAL\x10\x04\x12\b\n" +
+	"\x04BUSY\x10\x05\"@\n" +
 	"\vGetPlaylist\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x01 \x01(\tR\tcontentId\x12\x12\n" +
@@ -1939,7 +2119,18 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
 	"PartyEnded\x12\x19\n" +
 	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reasonB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"\x91\x01\n" +
+	"\tSwarmHave\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x1c\n" +
+	"\trendition\x18\x02 \x01(\tR\trendition\x12\x1d\n" +
+	"\n" +
+	"base_index\x18\x03 \x01(\rR\tbaseIndex\x12\x16\n" +
+	"\x06bitmap\x18\x04 \x01(\fR\x06bitmap\x12\x14\n" +
+	"\x05epoch\x18\x05 \x01(\x04R\x05epoch\"e\n" +
+	"\x0fGetSwarmSegment\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x1c\n" +
+	"\trendition\x18\x02 \x01(\tR\trendition\x12\x19\n" +
+	"\bseg_name\x18\x03 \x01(\tR\asegNameB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -1954,34 +2145,36 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
-	(Error_Status)(0),      // 0: peer.v1.Error.Status
-	(*Envelope)(nil),       // 1: peer.v1.Envelope
-	(*Handshake)(nil),      // 2: peer.v1.Handshake
-	(*Ping)(nil),           // 3: peer.v1.Ping
-	(*Pong)(nil),           // 4: peer.v1.Pong
-	(*Browse)(nil),         // 5: peer.v1.Browse
-	(*Catalog)(nil),        // 6: peer.v1.Catalog
-	(*GetMetadata)(nil),    // 7: peer.v1.GetMetadata
-	(*TitleMeta)(nil),      // 8: peer.v1.TitleMeta
-	(*SubtitleTrack)(nil),  // 9: peer.v1.SubtitleTrack
-	(*RequestAccess)(nil),  // 10: peer.v1.RequestAccess
-	(*AccessGranted)(nil),  // 11: peer.v1.AccessGranted
-	(*Ack)(nil),            // 12: peer.v1.Ack
-	(*Error)(nil),          // 13: peer.v1.Error
-	(*GetPlaylist)(nil),    // 14: peer.v1.GetPlaylist
-	(*Playlist)(nil),       // 15: peer.v1.Playlist
-	(*GetSegment)(nil),     // 16: peer.v1.GetSegment
-	(*Download)(nil),       // 17: peer.v1.Download
-	(*JoinParty)(nil),      // 18: peer.v1.JoinParty
-	(*PartyWelcome)(nil),   // 19: peer.v1.PartyWelcome
-	(*PartyInvite)(nil),    // 20: peer.v1.PartyInvite
-	(*PartyState)(nil),     // 21: peer.v1.PartyState
-	(*PartyAudience)(nil),  // 22: peer.v1.PartyAudience
-	(*AudienceMember)(nil), // 23: peer.v1.AudienceMember
-	(*LeaveParty)(nil),     // 24: peer.v1.LeaveParty
-	(*PartyEnded)(nil),     // 25: peer.v1.PartyEnded
+	(Error_Status)(0),       // 0: peer.v1.Error.Status
+	(*Envelope)(nil),        // 1: peer.v1.Envelope
+	(*Handshake)(nil),       // 2: peer.v1.Handshake
+	(*Ping)(nil),            // 3: peer.v1.Ping
+	(*Pong)(nil),            // 4: peer.v1.Pong
+	(*Browse)(nil),          // 5: peer.v1.Browse
+	(*Catalog)(nil),         // 6: peer.v1.Catalog
+	(*GetMetadata)(nil),     // 7: peer.v1.GetMetadata
+	(*TitleMeta)(nil),       // 8: peer.v1.TitleMeta
+	(*SubtitleTrack)(nil),   // 9: peer.v1.SubtitleTrack
+	(*RequestAccess)(nil),   // 10: peer.v1.RequestAccess
+	(*AccessGranted)(nil),   // 11: peer.v1.AccessGranted
+	(*Ack)(nil),             // 12: peer.v1.Ack
+	(*Error)(nil),           // 13: peer.v1.Error
+	(*GetPlaylist)(nil),     // 14: peer.v1.GetPlaylist
+	(*Playlist)(nil),        // 15: peer.v1.Playlist
+	(*GetSegment)(nil),      // 16: peer.v1.GetSegment
+	(*Download)(nil),        // 17: peer.v1.Download
+	(*JoinParty)(nil),       // 18: peer.v1.JoinParty
+	(*PartyWelcome)(nil),    // 19: peer.v1.PartyWelcome
+	(*PartyInvite)(nil),     // 20: peer.v1.PartyInvite
+	(*PartyState)(nil),      // 21: peer.v1.PartyState
+	(*PartyAudience)(nil),   // 22: peer.v1.PartyAudience
+	(*AudienceMember)(nil),  // 23: peer.v1.AudienceMember
+	(*LeaveParty)(nil),      // 24: peer.v1.LeaveParty
+	(*PartyEnded)(nil),      // 25: peer.v1.PartyEnded
+	(*SwarmHave)(nil),       // 26: peer.v1.SwarmHave
+	(*GetSwarmSegment)(nil), // 27: peer.v1.GetSwarmSegment
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
@@ -2006,17 +2199,19 @@ var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	22, // 19: peer.v1.Envelope.party_audience:type_name -> peer.v1.PartyAudience
 	24, // 20: peer.v1.Envelope.leave_party:type_name -> peer.v1.LeaveParty
 	25, // 21: peer.v1.Envelope.party_ended:type_name -> peer.v1.PartyEnded
-	8,  // 22: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
-	9,  // 23: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
-	0,  // 24: peer.v1.Error.status:type_name -> peer.v1.Error.Status
-	21, // 25: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
-	22, // 26: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
-	23, // 27: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	26, // 22: peer.v1.Envelope.swarm_have:type_name -> peer.v1.SwarmHave
+	27, // 23: peer.v1.Envelope.get_swarm_segment:type_name -> peer.v1.GetSwarmSegment
+	8,  // 24: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 25: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 26: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	21, // 27: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
+	22, // 28: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
+	23, // 29: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -2047,6 +2242,8 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_PartyAudience)(nil),
 		(*Envelope_LeaveParty)(nil),
 		(*Envelope_PartyEnded)(nil),
+		(*Envelope_SwarmHave)(nil),
+		(*Envelope_GetSwarmSegment)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2054,7 +2251,7 @@ func file_proto_peer_v1_peer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

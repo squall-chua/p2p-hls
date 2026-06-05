@@ -31,6 +31,8 @@ message Envelope {
     PartyAudience party_audience = 21;
     LeaveParty leave_party = 22;
     PartyEnded party_ended = 23;
+    SwarmHave swarm_have = 24;
+    GetSwarmSegment get_swarm_segment = 25;
   }
 }
 
@@ -85,6 +87,7 @@ message Error {
     NOT_FOUND = 2;
     UNAVAILABLE = 3;
     INTERNAL = 4;
+    BUSY = 5;
   }
 }
 
@@ -161,4 +164,22 @@ message LeaveParty { string party_id = 1; }
 message PartyEnded {
   string party_id = 1;
   string reason = 2;
+}
+
+// SwarmHave is the gossip have-map: the windowed set of Segments the sender holds
+// for a party, as base_index + bitmap (bit i set => has Segment base_index+i).
+message SwarmHave {
+  string party_id = 1;
+  string rendition = 2;
+  uint32 base_index = 3;
+  bytes bitmap = 4;
+  uint64 epoch = 5; // monotonic; receivers ignore lower-or-equal epochs
+}
+
+// GetSwarmSegment requests a cached Segment from a peer Viewer in the same party.
+// The bytes return on the bulk channel, correlated by request_id (like GetSegment).
+message GetSwarmSegment {
+  string party_id = 1;
+  string rendition = 2;
+  string seg_name = 3;
 }
