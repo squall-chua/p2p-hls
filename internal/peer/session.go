@@ -636,23 +636,22 @@ func (s *Session) handleGetPlaylist(reqID uint64, req *peerv1.GetPlaylist) {
 	}}})
 }
 
-// TODO(slice-4): handleGetSegment/handleDownload run inline on the control readLoop
-// and can block under bulk backpressure, stalling other control messages during a
-// transfer. Dispatch these to a worker goroutine when multi-stream support lands.
 func (s *Session) handleGetSegment(reqID uint64, req *peerv1.GetSegment) {
 	h := s.currentMediaHandler()
 	if h == nil {
 		_ = s.send(errEnvelope(reqID, ErrUnavailable))
 		return
 	}
-	data, err := h.Segment(s.remote, req.GetContentId(), req.GetName())
-	if err != nil {
-		_ = s.send(errEnvelope(reqID, err))
-		return
-	}
-	if serr := s.sendBulk(reqID, data); serr != nil {
-		_ = s.send(errEnvelope(reqID, serr))
-	}
+	go func() {
+		data, err := h.Segment(s.remote, req.GetContentId(), req.GetName())
+		if err != nil {
+			_ = s.send(errEnvelope(reqID, err))
+			return
+		}
+		if serr := s.sendBulk(reqID, data); serr != nil {
+			_ = s.send(errEnvelope(reqID, serr))
+		}
+	}()
 }
 
 func (s *Session) handleDownload(reqID uint64, req *peerv1.Download) {
@@ -661,13 +660,15 @@ func (s *Session) handleDownload(reqID uint64, req *peerv1.Download) {
 		_ = s.send(errEnvelope(reqID, ErrUnavailable))
 		return
 	}
-	rc, _, err := h.OpenFile(s.remote, req.GetContentId())
-	if err != nil {
-		_ = s.send(errEnvelope(reqID, err))
-		return
-	}
-	defer rc.Close()
-	if serr := s.sendBulkReader(reqID, rc); serr != nil {
-		_ = s.send(errEnvelope(reqID, serr))
-	}
+	go func() {
+		rc, _, err := h.OpenFile(s.remote, req.GetContentId())
+		if err != nil {
+			_ = s.send(errEnvelope(reqID, err))
+			return
+		}
+		defer rc.Close()
+		if serr := s.sendBulkReader(reqID, rc); serr != nil {
+			_ = s.send(errEnvelope(reqID, serr))
+		}
+	}()
 }
