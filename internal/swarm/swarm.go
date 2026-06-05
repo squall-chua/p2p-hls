@@ -4,9 +4,12 @@
 package swarm
 
 import (
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
 // Config holds the tunable swarm parameters.
@@ -60,4 +63,40 @@ func leftPad(s string, n int) string {
 		s = "0" + s
 	}
 	return s
+}
+
+// Swarm is the pure decision engine for one viewed party. Not safe for concurrent
+// use; the owning swarm session serializes access under its own mutex.
+type Swarm struct {
+	self  identity.NodeID
+	clock Clock
+	cfg   Config
+	rng   *rand.Rand
+
+	have      map[int]bool // local cached+verified Segment indices
+	haveEpoch uint64
+
+	peers map[identity.NodeID]*peerInfo
+}
+
+type peerInfo struct {
+	have      map[int]bool
+	epoch     uint64
+	rtt       time.Duration
+	haveRTT   bool
+	lastSeen  time.Time
+	busyUntil time.Time
+	demoted   bool
+}
+
+// New constructs an engine for self with the given Clock, Config and RNG source.
+func New(self identity.NodeID, clock Clock, cfg Config, rng *rand.Rand) *Swarm {
+	return &Swarm{
+		self:  self,
+		clock: clock,
+		cfg:   cfg,
+		rng:   rng,
+		have:  map[int]bool{},
+		peers: map[identity.NodeID]*peerInfo{},
+	}
 }
