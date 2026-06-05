@@ -141,6 +141,34 @@ func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
 	return s.SendControl(env)
 }
 
+// fetchSwarmSegment pulls a Segment from a peer Viewer over its bulk channel.
+func (n *Node) fetchSwarmSegment(ctx context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
+	s, err := n.session(ctx, node)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetSwarmSegment(ctx, req)
+}
+
+// hostPlaylist fetches a playlist directly from the Host (the integrity trust anchor).
+func (n *Node) hostPlaylist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error) {
+	s, err := n.session(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	data, _, _, err := s.GetPlaylist(ctx, contentID, name)
+	return data, err
+}
+
+// hostSegment fetches a Segment directly from the Host (last-resort source).
+func (n *Node) hostSegment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error) {
+	s, err := n.session(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetSegment(ctx, contentID, name)
+}
+
 // measureRTT implements sender: times a Ping round trip to a remote node.
 func (n *Node) measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error) {
 	s, err := n.session(ctx, node)

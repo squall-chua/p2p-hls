@@ -20,6 +20,16 @@ type sender interface {
 	measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error)
 }
 
+// swarmTransport is the superset of sender used by the viewer swarm session.
+type swarmTransport interface {
+	sendTo(node identity.NodeID, env *peerv1.Envelope) error
+	measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error)
+	fetchSwarmSegment(ctx context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error)
+	ensurePeer(node identity.NodeID) error
+	hostPlaylist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error)
+	hostSegment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error)
+}
+
 type partyCoordinator struct {
 	send    sender
 	self    identity.NodeID
