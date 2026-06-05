@@ -13,7 +13,6 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
-	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/squall-chua/p2p-hls/internal/party"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/squall-chua/p2p-hls/internal/signaling"
@@ -29,7 +28,7 @@ type Node struct {
 	mu       sync.Mutex
 	sessions map[identity.NodeID]*peer.Session
 	catalog  *catalog.Service
-	media    *media.Service
+	media    peer.MediaHandler
 	party    *partyCoordinator
 }
 
@@ -250,7 +249,7 @@ func (n *Node) SetCatalog(svc *catalog.Service) {
 }
 
 // SetMedia installs the streaming handler on existing and future sessions.
-func (n *Node) SetMedia(svc *media.Service) {
+func (n *Node) SetMedia(svc peer.MediaHandler) {
 	n.mu.Lock()
 	n.media = svc
 	for _, s := range n.sessions {
