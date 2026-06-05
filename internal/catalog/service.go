@@ -7,13 +7,23 @@ import (
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
+// PartyProvider reports live Watch Party state for a Title so Browse can annotate
+// it. Optional: a nil provider means "no parties".
+type PartyProvider interface {
+	LiveParty(contentID string) (live bool, viewers int)
+}
+
 // Service answers browse RPCs from Viewers, enforcing the access Policy.
 // It implements peer.RequestHandler.
 type Service struct {
 	store  *library.Store
 	policy *Policy
 	reqs   *Requests
+	party  PartyProvider
 }
+
+// SetPartyProvider installs the source of live-party annotations for Browse.
+func (s *Service) SetPartyProvider(p PartyProvider) { s.party = p }
 
 // NewService wires the Store, Policy, and Requests together.
 func NewService(store *library.Store, policy *Policy, reqs *Requests) *Service {
@@ -31,7 +41,7 @@ func (s *Service) Browse(remote identity.NodeID) ([]*peerv1.TitleMeta, error) {
 	}
 	out := make([]*peerv1.TitleMeta, 0, len(titles))
 	for _, t := range titles {
-		out = append(out, toMeta(t))
+		out = append(out, s.toMeta(t))
 	}
 	return out, nil
 }
@@ -48,7 +58,7 @@ func (s *Service) GetMetadata(remote identity.NodeID, contentID string) (*peerv1
 	if !ok {
 		return nil, peer.ErrNotFound
 	}
-	return toMeta(t), nil
+	return s.toMeta(t), nil
 }
 
 // RequestAccess records a pending access request from remote.
@@ -60,13 +70,17 @@ func (s *Service) RequestAccess(remote identity.NodeID, message string) error {
 // Requests exposes the pending-request register.
 func (s *Service) Requests() *Requests { return s.reqs }
 
+// Allowed reports whether node passes this catalog's access policy. Exposed so
+// other subsystems (e.g. watch-party admission) reuse the same decision.
+func (s *Service) Allowed(node identity.NodeID) bool { return s.policy.Allowed(node) }
+
 // Approve allows the Node and clears its pending request.
 func (s *Service) Approve(node identity.NodeID) {
 	s.reqs.Take(node)
 	s.policy.AddAllow(node)
 }
 
-func toMeta(t library.Title) *peerv1.TitleMeta {
+func (s *Service) toMeta(t library.Title) *peerv1.TitleMeta {
 	m := &peerv1.TitleMeta{
 		ContentId:     t.ContentID,
 		DisplayTitle:  t.DisplayTitle,
@@ -83,6 +97,12 @@ func toMeta(t library.Title) *peerv1.TitleMeta {
 		m.Subtitles = append(m.Subtitles, &peerv1.SubtitleTrack{
 			Id: sub.ID, Language: sub.Language, Label: sub.Label, Kind: sub.Kind,
 		})
+	}
+	if s.party != nil {
+		if live, viewers := s.party.LiveParty(t.ContentID); live {
+			m.PartyLive = true
+			m.PartyViewers = int32(viewers)
+		}
 	}
 	return m
 }

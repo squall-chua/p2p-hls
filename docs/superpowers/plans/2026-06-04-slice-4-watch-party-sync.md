@@ -136,17 +136,17 @@ Then inspect the generated wrapper type names (protoc appends a trailing `_` whe
 
 Run: `grep -nE "type Envelope_(JoinParty|PartyWelcome|PartyInvite|PartyState|PartyAudience|LeaveParty|PartyEnded)" proto/peer/v1/peer.pb.go`
 
-Expected (verify the EXACT names — later tasks assume trailing underscores; if protoc named them differently, use whatever this grep prints):
+Expected (this protoc version generates the party wrappers WITHOUT trailing underscores — verified; note the pre-existing `Envelope_Playlist_` does keep its underscore, but the party wrappers do not):
 ```
-type Envelope_JoinParty_ struct {...}
-type Envelope_PartyWelcome_ struct {...}
-type Envelope_PartyInvite_ struct {...}
-type Envelope_PartyState_ struct {...}
-type Envelope_PartyAudience_ struct {...}
-type Envelope_LeaveParty_ struct {...}
-type Envelope_PartyEnded_ struct {...}
+type Envelope_JoinParty struct {...}
+type Envelope_PartyWelcome struct {...}
+type Envelope_PartyInvite struct {...}
+type Envelope_PartyState struct {...}
+type Envelope_PartyAudience struct {...}
+type Envelope_LeaveParty struct {...}
+type Envelope_PartyEnded struct {...}
 ```
-The struct field inside each wrapper is the non-underscore name (e.g. `Envelope_PartyState_{PartyState: ...}`). Confirm with: `grep -n "PartyState \*PartyState" proto/peer/v1/peer.pb.go`.
+The struct field inside each wrapper is the non-underscore name (e.g. `Envelope_PartyState{PartyState: ...}`). Confirm with: `grep -n "PartyState \*PartyState" proto/peer/v1/peer.pb.go`.
 
 - [ ] **Step 3: Commit**
 
@@ -875,7 +875,7 @@ func TestPartyStateDeliveredToHandler(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	require.NoError(t, a.SendControl(&peerv1.Envelope{
-		Body: &peerv1.Envelope_PartyState_{PartyState: &peerv1.PartyState{PartyId: "p1", PositionMs: 1234, Seq: 7}},
+		Body: &peerv1.Envelope_PartyState{PartyState: &peerv1.PartyState{PartyId: "p1", PositionMs: 1234, Seq: 7}},
 	}))
 	select {
 	case s := <-h.states:
@@ -970,7 +970,7 @@ func (s *Session) SendControl(env *peerv1.Envelope) error { return s.send(env) }
 // JoinParty sends a JoinParty request and awaits the PartyWelcome response.
 func (s *Session) JoinParty(ctx context.Context, contentID string) (*peerv1.PartyWelcome, error) {
 	resp, err := s.call(ctx, &peerv1.Envelope{
-		Body: &peerv1.Envelope_JoinParty_{JoinParty: &peerv1.JoinParty{ContentId: contentID}},
+		Body: &peerv1.Envelope_JoinParty{JoinParty: &peerv1.JoinParty{ContentId: contentID}},
 	})
 	if err != nil {
 		return nil, err
@@ -1024,7 +1024,7 @@ func (s *Session) handleJoinParty(reqID uint64, contentID string) {
 		_ = s.send(errEnvelope(reqID, err))
 		return
 	}
-	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_PartyWelcome_{PartyWelcome: w}})
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_PartyWelcome{PartyWelcome: w}})
 }
 ```
 
@@ -1066,35 +1066,35 @@ In the `case *peerv1.Envelope_Handshake:` branch, record the remote capabilities
 
 Add new cases before the final `deliver`-group case:
 ```go
-	case *peerv1.Envelope_JoinParty_:
+	case *peerv1.Envelope_JoinParty:
 		s.handleJoinParty(env.RequestId, body.JoinParty.GetContentId())
-	case *peerv1.Envelope_LeaveParty_:
+	case *peerv1.Envelope_LeaveParty:
 		if h := s.currentPartyHandler(); h != nil {
 			h.OnLeaveParty(s.remote, body.LeaveParty.GetPartyId())
 		}
-	case *peerv1.Envelope_PartyState_:
+	case *peerv1.Envelope_PartyState:
 		if h := s.currentPartyHandler(); h != nil {
 			h.OnPartyState(s.remote, body.PartyState)
 		}
-	case *peerv1.Envelope_PartyAudience_:
+	case *peerv1.Envelope_PartyAudience:
 		if h := s.currentPartyHandler(); h != nil {
 			h.OnPartyAudience(s.remote, body.PartyAudience)
 		}
-	case *peerv1.Envelope_PartyInvite_:
+	case *peerv1.Envelope_PartyInvite:
 		if h := s.currentPartyHandler(); h != nil {
 			h.OnPartyInvite(s.remote, body.PartyInvite)
 		}
-	case *peerv1.Envelope_PartyEnded_:
+	case *peerv1.Envelope_PartyEnded:
 		if h := s.currentPartyHandler(); h != nil {
 			h.OnPartyEnded(s.remote, body.PartyEnded)
 		}
 ```
 
-Add `*peerv1.Envelope_PartyWelcome_` to the existing `deliver`-group case (it is a response to JoinParty):
+Add `*peerv1.Envelope_PartyWelcome` to the existing `deliver`-group case (it is a response to JoinParty):
 ```go
 	case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
 		*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_,
-		*peerv1.Envelope_PartyWelcome_:
+		*peerv1.Envelope_PartyWelcome:
 		s.deliver(env)
 ```
 
@@ -1564,7 +1564,7 @@ func (pc *partyCoordinator) EndParty(reason string) {
 	}
 	for _, m := range h.Members() {
 		_ = pc.send.sendTo(m.NodeID, &peerv1.Envelope{
-			Body: &peerv1.Envelope_PartyEnded_{PartyEnded: &peerv1.PartyEnded{PartyId: h.PartyID(), Reason: reason}},
+			Body: &peerv1.Envelope_PartyEnded{PartyEnded: &peerv1.PartyEnded{PartyId: h.PartyID(), Reason: reason}},
 		})
 	}
 }
@@ -1669,7 +1669,7 @@ func (pc *partyCoordinator) heartbeat(h *party.Host, stop chan struct{}) {
 		case <-t.C:
 			now := pc.clock.Now()
 			st, _ := h.Tick(now) // commits any settled seek; bumps seq if so
-			env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyState_{PartyState: toWireState(st)}}
+			env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyState{PartyState: toWireState(st)}}
 			for _, m := range h.Members() {
 				_ = pc.send.sendTo(m.NodeID, env)
 			}
@@ -1679,7 +1679,7 @@ func (pc *partyCoordinator) heartbeat(h *party.Host, stop chan struct{}) {
 
 func (pc *partyCoordinator) broadcastAudience(h *party.Host) {
 	a := toWireAudience(h)
-	env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyAudience_{PartyAudience: a}}
+	env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyAudience{PartyAudience: a}}
 	for _, m := range h.Members() {
 		_ = pc.send.sendTo(m.NodeID, env)
 	}
@@ -2033,6 +2033,6 @@ git commit -m "test(e2e): watch-party join + sync convergence over real peer ses
 
 **Placeholder scan:** no TBD/TODO; every code step has complete code; every run step has an exact command + expected outcome.
 
-**Type consistency:** `State`/`Action`/`Member`/`Config` are defined once (Task 1) and used unchanged in Tasks 2–3, 7. `party.State` ↔ `peerv1.PartyState` conversions live only in Task 7 (`toWireState`/`fromWireState`). `PartyHandler` (Task 4) method set matches the coordinator's implementations (Task 7). Generated oneof wrapper names (`Envelope_PartyState_`, etc.) are recorded in Task 0 and used identically in Task 4.
+**Type consistency:** `State`/`Action`/`Member`/`Config` are defined once (Task 1) and used unchanged in Tasks 2–3, 7. `party.State` ↔ `peerv1.PartyState` conversions live only in Task 7 (`toWireState`/`fromWireState`). `PartyHandler` (Task 4) method set matches the coordinator's implementations (Task 7). Generated oneof wrapper names (`Envelope_PartyState`, etc.) are recorded in Task 0 and used identically in Task 4.
 
-**Known risk flagged in-plan:** the generated protobuf wrapper names depend on protoc's disambiguation; Task 0 Step 2 records the exact names and Task 4 must use them verbatim.
+**Resolved during execution:** the generated protobuf wrapper names were verified after `make proto` — this protoc version produces them WITHOUT trailing underscores (`Envelope_PartyState`, etc.), unlike the pre-existing `Envelope_Playlist_`. Tasks 4 and 7 use the verified underscore-free names.

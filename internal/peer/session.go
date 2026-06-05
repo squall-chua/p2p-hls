@@ -44,6 +44,10 @@ type Session struct {
 	bulkSinks    map[uint64]*bulkSink
 	mediaHandler MediaHandler
 	lowSig       chan struct{}
+
+	partyHandler PartyHandler
+	remoteCaps   []string
+	onClose      func(identity.NodeID)
 }
 
 // NewSession builds a Session and its underlying PeerConnection.
@@ -69,6 +73,19 @@ func NewSession(self *identity.Identity, remote identity.NodeID, cfg webrtc.Conf
 			s.bindControl(dc)
 		case "bulk":
 			s.bindBulk(dc)
+		}
+	})
+	pc.OnConnectionStateChange(func(st webrtc.PeerConnectionState) {
+		switch st {
+		case webrtc.PeerConnectionStateDisconnected,
+			webrtc.PeerConnectionStateFailed,
+			webrtc.PeerConnectionStateClosed:
+			s.mu.Lock()
+			fn := s.onClose
+			s.mu.Unlock()
+			if fn != nil {
+				fn(s.remote)
+			}
 		}
 	})
 	return s, nil
@@ -148,6 +165,7 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 		_ = s.send(&peerv1.Envelope{
 			Body: &peerv1.Envelope_Handshake{Handshake: &peerv1.Handshake{
 				ProtocolVersion: ProtocolVersion,
+				Capabilities:    []string{CapParty},
 			}},
 		})
 	})
@@ -158,6 +176,9 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 		}
 		switch body := env.Body.(type) {
 		case *peerv1.Envelope_Handshake:
+			s.mu.Lock()
+			s.remoteCaps = body.Handshake.GetCapabilities()
+			s.mu.Unlock()
 			if body.Handshake.GetProtocolVersion() == ProtocolVersion {
 				s.readyOnce.Do(func() { close(s.ready) })
 			}
@@ -194,8 +215,31 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			} else {
 				s.deliver(env)
 			}
+		case *peerv1.Envelope_JoinParty:
+			s.handleJoinParty(env.RequestId, body.JoinParty.GetContentId())
+		case *peerv1.Envelope_LeaveParty:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnLeaveParty(s.remote, body.LeaveParty.GetPartyId())
+			}
+		case *peerv1.Envelope_PartyState:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnPartyState(s.remote, body.PartyState)
+			}
+		case *peerv1.Envelope_PartyAudience:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnPartyAudience(s.remote, body.PartyAudience)
+			}
+		case *peerv1.Envelope_PartyInvite:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnPartyInvite(s.remote, body.PartyInvite)
+			}
+		case *peerv1.Envelope_PartyEnded:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnPartyEnded(s.remote, body.PartyEnded)
+			}
 		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
-			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_:
+			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_,
+			*peerv1.Envelope_PartyWelcome:
 			s.deliver(env)
 		}
 	})

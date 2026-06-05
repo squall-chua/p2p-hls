@@ -6,11 +6,14 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
 	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/media"
+	"github.com/squall-chua/p2p-hls/internal/party"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/squall-chua/p2p-hls/internal/signaling"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
@@ -26,6 +29,7 @@ type Node struct {
 	sessions map[identity.NodeID]*peer.Session
 	catalog  *catalog.Service
 	media    *media.Service
+	party    *partyCoordinator
 }
 
 // relaySignaler adapts the signaling client to peer.Signaler.
@@ -57,6 +61,7 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 		rtcCfg:   rtcCfg,
 		sessions: make(map[identity.NodeID]*peer.Session),
 	}
+	n.party = newPartyCoordinator(n, self.NodeID(), party.RealClock(), party.DefaultConfig())
 	go n.routeRelays()
 	return n, nil
 }
@@ -77,6 +82,24 @@ func (n *Node) routeRelays() {
 	}
 }
 
+// sendTo implements sender: sends an Envelope to a remote node.
+func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
+	s, err := n.session(context.Background(), node)
+	if err != nil {
+		return err
+	}
+	return s.SendControl(env)
+}
+
+// measureRTT implements sender: times a Ping round trip to a remote node.
+func (n *Node) measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error) {
+	s, err := n.session(ctx, node)
+	if err != nil {
+		return 0, err
+	}
+	return s.MeasureRTT(ctx)
+}
+
 // sessionFor returns the existing session for remote, or creates one. When
 // created as an answerer (initiator=false) it is started immediately.
 func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session, error) {
@@ -95,6 +118,10 @@ func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session
 	}
 	if n.media != nil {
 		s.SetMediaHandler(n.media)
+	}
+	if n.party != nil {
+		s.SetPartyHandler(n.party)
+		s.SetOnClose(func(node identity.NodeID) { n.party.OnLeaveParty(node, "") })
 	}
 	if !initiator {
 		_ = s.Start(context.Background(), false)
@@ -139,6 +166,8 @@ func (n *Node) SetCatalog(svc *catalog.Service) {
 		s.SetHandler(svc)
 	}
 	n.mu.Unlock()
+	svc.SetPartyProvider(n.party)
+	n.party.setAllowed(svc.Allowed)
 }
 
 // SetMedia installs the streaming handler on existing and future sessions.
@@ -240,6 +269,49 @@ func (n *Node) session(ctx context.Context, remote identity.NodeID) (*peer.Sessi
 	}
 	return n.Dial(ctx, remote)
 }
+
+// StartParty opens a Watch Party for contentID and returns the party_id.
+func (n *Node) StartParty(contentID string) string { return n.party.StartParty(contentID) }
+
+// JoinParty dials host (if needed) and joins the party for contentID.
+func (n *Node) JoinParty(ctx context.Context, host identity.NodeID, contentID string) error {
+	s, err := n.session(ctx, host)
+	if err != nil {
+		return err
+	}
+	return n.party.JoinParty(ctx, host, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
+		return s.JoinParty(ctx, contentID)
+	})
+}
+
+// PartyViewerDecide exposes the viewer correction for tests/e2e (a Go actuator).
+func (n *Node) PartyViewerDecide(posMS int64, playing bool) party.Action {
+	return n.party.viewerDecide(posMS, playing, party.RealClock().Now())
+}
+
+// IngestHostPlayer feeds host player events from a Go actuator (tests/e2e).
+func (n *Node) IngestHostPlayer(kind string, posMS int64) {
+	now := party.RealClock().Now()
+	n.party.mu.Lock()
+	h := n.party.host
+	n.party.mu.Unlock()
+	if h == nil {
+		return
+	}
+	switch kind {
+	case "play":
+		h.OnPlay(posMS, now)
+	case "pause":
+		h.OnPause(posMS, now)
+	case "seek":
+		h.OnSeek(posMS, now)
+	case "report":
+		h.OnReport(posMS, now)
+	}
+}
+
+// PartyWS returns the loopback WebSocket handler for external bridge wiring.
+func (n *Node) PartyWS() func(*websocket.Conn) { return n.party.serveWS }
 
 // Close shuts the node down.
 // NOTE(slice-3): relays already buffered in the client channel may drive routeRelays to create a session after Close returns; such a late session isn't tracked/closed here. Benign at process exit.

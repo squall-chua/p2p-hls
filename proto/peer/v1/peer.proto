@@ -24,6 +24,13 @@ message Envelope {
     Playlist playlist = 14;
     GetSegment get_segment = 15;
     Download download = 16;
+    JoinParty join_party = 17;
+    PartyWelcome party_welcome = 18;
+    PartyInvite party_invite = 19;
+    PartyState party_state = 20;
+    PartyAudience party_audience = 21;
+    LeaveParty leave_party = 22;
+    PartyEnded party_ended = 23;
   }
 }
 
@@ -54,6 +61,8 @@ message TitleMeta {
   int64 size_bytes = 9;
   bool hls_compatible = 10;
   repeated SubtitleTrack subtitles = 11;
+  bool party_live = 12;     // a live Watch Party exists for this Title on this Host
+  int32 party_viewers = 13; // current Audience size (Viewers, excluding the Host)
 }
 
 message SubtitleTrack {
@@ -102,4 +111,54 @@ message GetSegment {
 // Download requests the original file bytes (streamed on the bulk channel).
 message Download {
   string content_id = 1;
+}
+
+// JoinParty asks a Host to admit this Viewer to the live Watch Party for a Title.
+// content_id is only the join reference; the Host answers with the current party_id.
+message JoinParty { string content_id = 1; }
+
+// PartyWelcome admits a Viewer: the assigned party_id, the current authoritative
+// state, and the current Audience.
+message PartyWelcome {
+  string party_id = 1;
+  PartyState initial = 2;
+  PartyAudience audience = 3;
+}
+
+// PartyInvite is pushed by a Host to proactively invite a Node to a Watch Party.
+message PartyInvite {
+  string content_id = 1;
+  string party_id = 2;
+  string host_display = 3;
+}
+
+// PartyState is the Host's authoritative playback state at a sample instant.
+// It is both the periodic heartbeat and the on-change event (highest seq wins).
+message PartyState {
+  string party_id = 1;
+  bool playing = 2;
+  int64 position_ms = 3;
+  int64 host_clock_ms = 4; // reserved for the NTP fallback; unused by the RTT/2 model
+  double rate = 5;
+  uint64 seq = 6;
+}
+
+// PartyAudience is the current set of Viewers in a Watch Party.
+message PartyAudience {
+  string party_id = 1;
+  repeated AudienceMember members = 2;
+}
+
+message AudienceMember {
+  string node_id = 1;
+  string display_name = 2;
+}
+
+// LeaveParty tells the Host this Viewer is leaving the Audience.
+message LeaveParty { string party_id = 1; }
+
+// PartyEnded tells Viewers the Host has stopped the Watch Party.
+message PartyEnded {
+  string party_id = 1;
+  string reason = 2;
 }

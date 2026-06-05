@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
+	"github.com/gorilla/websocket"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
@@ -24,11 +26,17 @@ type Bridge struct {
 	token    string
 	srv      *http.Server
 	ln       net.Listener
+
+	mu           sync.Mutex
+	partyHandler func(*websocket.Conn)
+	upgrader     websocket.Upgrader
 }
 
 // New constructs a Bridge that requires the given session token.
 func New(streamer Streamer, token string) *Bridge {
-	return &Bridge{streamer: streamer, token: token}
+	b := &Bridge{streamer: streamer, token: token}
+	b.upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return b.originOK(r) }}
+	return b
 }
 
 // Start binds addr (use "127.0.0.1:0" for an ephemeral port) and serves. It
@@ -49,6 +57,7 @@ func (b *Bridge) Start(addr string) error {
 	b.ln = ln
 	mux := http.NewServeMux()
 	mux.HandleFunc("/s/", b.handleStream)
+	mux.HandleFunc("/party/", b.handleParty)
 	b.srv = &http.Server{Handler: mux}
 	go b.srv.Serve(ln)
 	return nil
