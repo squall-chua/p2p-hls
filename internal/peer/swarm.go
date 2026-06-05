@@ -10,7 +10,7 @@ import (
 // SwarmHandler answers inbound swarm messages from a peer Viewer in a party.
 type SwarmHandler interface {
 	OnSwarmHave(remote identity.NodeID, h *peerv1.SwarmHave)
-	SwarmSegment(remote identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error)
+	SwarmSegment(remote identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, func(), error)
 }
 
 // SetSwarmHandler installs the handler for inbound SwarmHave / GetSwarmSegment.
@@ -45,11 +45,12 @@ func (s *Session) handleGetSwarmSegment(reqID uint64, req *peerv1.GetSwarmSegmen
 		return
 	}
 	go func() {
-		data, err := h.SwarmSegment(s.remote, req)
+		data, release, err := h.SwarmSegment(s.remote, req)
 		if err != nil {
 			_ = s.send(errEnvelope(reqID, err))
 			return
 		}
+		defer release()
 		if serr := s.sendBulk(reqID, data); serr != nil {
 			_ = s.send(errEnvelope(reqID, serr))
 		}

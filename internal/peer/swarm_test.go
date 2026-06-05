@@ -14,9 +14,9 @@ type fakeSwarm struct {
 }
 
 func (f *fakeSwarm) OnSwarmHave(_ identity.NodeID, h *peerv1.SwarmHave) { f.gotHave = h }
-func (f *fakeSwarm) SwarmSegment(_ identity.NodeID, r *peerv1.GetSwarmSegment) ([]byte, error) {
+func (f *fakeSwarm) SwarmSegment(_ identity.NodeID, r *peerv1.GetSwarmSegment) ([]byte, func(), error) {
 	f.segReq = r
-	return []byte("SEG"), nil
+	return []byte("SEG"), func() {}, nil
 }
 
 func TestSetSwarmHandlerStored(t *testing.T) {

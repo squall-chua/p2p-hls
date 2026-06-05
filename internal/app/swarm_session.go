@@ -90,21 +90,22 @@ func (ss *swarmSession) OnSwarmHave(remote identity.NodeID, h *peerv1.SwarmHave)
 }
 
 // SwarmSegment serves a cached Segment to a peer, bounded by the upload cap.
-func (ss *swarmSession) SwarmSegment(_ identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
+func (ss *swarmSession) SwarmSegment(_ identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, func(), error) {
 	idx, ok := swarm.SegIndex(req.GetSegName())
 	if !ok {
-		return nil, peer.ErrNotFound
+		return nil, nil, peer.ErrNotFound
 	}
 	select {
 	case ss.uploadSem <- struct{}{}:
-		defer func() { <-ss.uploadSem }()
 	default:
-		return nil, peer.ErrBusy
+		return nil, nil, peer.ErrBusy
 	}
-	if b, ok := ss.cache.get(idx); ok {
-		return b, nil
+	b, ok := ss.cache.get(idx)
+	if !ok {
+		<-ss.uploadSem // release: nothing to send
+		return nil, nil, peer.ErrNotFound
 	}
-	return nil, peer.ErrNotFound
+	return b, func() { <-ss.uploadSem }, nil
 }
 
 // FetchSegment is the pull seam: serve from cache, else lowest-RTT verified peer,
@@ -140,10 +141,10 @@ func (ss *swarmSession) FetchSegment(ctx context.Context, segName string) ([]byt
 			})
 			if err != nil {
 				ss.mu.Lock()
-				if isBusy(err) {
-					ss.eng.MarkBusy(src, ss.clock.Now())
+				if errors.Is(err, peer.ErrNotFound) {
+					ss.eng.Demote(src) // peer advertised the segment but doesn't have it (lie)
 				} else {
-					ss.eng.Demote(src)
+					ss.eng.MarkBusy(src, ss.clock.Now()) // busy / transient-unavailable / timeout: skip, retry later
 				}
 				ss.mu.Unlock()
 				continue
@@ -206,8 +207,6 @@ func (ss *swarmSession) expectedHash(ctx context.Context, segName string) string
 	ss.mu.Unlock()
 	return h
 }
-
-func isBusy(err error) bool { return errors.Is(err, peer.ErrBusy) }
 
 func (ss *swarmSession) start() { go ss.gossipLoop() }
 

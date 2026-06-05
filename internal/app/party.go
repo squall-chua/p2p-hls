@@ -272,12 +272,12 @@ func (pc *partyCoordinator) OnSwarmHave(remote identity.NodeID, h *peerv1.SwarmH
 	}
 }
 
-func (pc *partyCoordinator) SwarmSegment(remote identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
+func (pc *partyCoordinator) SwarmSegment(remote identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, func(), error) {
 	pc.mu.Lock()
 	ss := pc.swarm
 	pc.mu.Unlock()
 	if ss == nil {
-		return nil, peer.ErrUnavailable
+		return nil, nil, peer.ErrUnavailable
 	}
 	return ss.SwarmSegment(remote, req)
 }

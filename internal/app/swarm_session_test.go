@@ -19,6 +19,7 @@ type fakeTransport struct {
 	peerSeg  map[string][]byte // node|segName -> bytes
 	hostSeg  map[string][]byte // segName -> bytes
 	playlist []byte
+	unavail  map[string]bool // node -> transiently unavailable
 }
 
 func (f *fakeTransport) sendTo(identity.NodeID, *peerv1.Envelope) error { return nil }
@@ -26,6 +27,9 @@ func (f *fakeTransport) measureRTT(context.Context, identity.NodeID) (time.Durat
 	return 10 * time.Millisecond, nil
 }
 func (f *fakeTransport) fetchSwarmSegment(_ context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
+	if f.unavail[string(node)] {
+		return nil, peer.ErrUnavailable
+	}
 	b, ok := f.peerSeg[string(node)+"|"+req.GetSegName()]
 	if !ok {
 		return nil, peer.ErrNotFound
@@ -86,6 +90,26 @@ func TestFetchSegmentRejectsPoisonAndDemotesThenHostFallback(t *testing.T) {
 	require.Equal(t, good, got)
 	_, ok := ss.eng.PeerHasForTest("liar", 2)
 	require.False(t, ok)
+}
+
+func TestFetchSegmentTransientUnavailableDoesNotDemote(t *testing.T) {
+	good := []byte("host-bytes")
+	ft := &fakeTransport{
+		peerSeg:  map[string][]byte{},
+		hostSeg:  map[string][]byte{"seg00002.ts": good},
+		playlist: plHash(good, "seg00002.ts"),
+		unavail:  map[string]bool{"flaky": true},
+	}
+	ss := newSwarmSession(ft, "self", "host", "cid", swarm.RealClock(), swarm.DefaultConfig())
+	ss.setPeers([]identity.NodeID{"flaky"})
+	ss.eng.OnPeerHave("flaky", 2, []byte{0x01}, 1, time.Now())
+
+	got, err := ss.FetchSegment(context.Background(), "seg00002.ts")
+	require.NoError(t, err)
+	require.Equal(t, good, got) // fell back to Host this round
+	// The transiently-unavailable peer must NOT be permanently demoted.
+	_, ok := ss.eng.PeerHasForTest("flaky", 2)
+	require.True(t, ok, "transiently-unavailable peer must remain a candidate (not demoted)")
 }
 
 func TestFetchSegmentSkipsPeersWhenHashUnknown(t *testing.T) {
