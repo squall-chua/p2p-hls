@@ -46,6 +46,7 @@ type Session struct {
 	lowSig       chan struct{}
 
 	partyHandler PartyHandler
+	swarmHandler SwarmHandler
 	remoteCaps   []string
 	onClose      func(identity.NodeID)
 }
@@ -237,6 +238,12 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			if h := s.currentPartyHandler(); h != nil {
 				h.OnPartyEnded(s.remote, body.PartyEnded)
 			}
+		case *peerv1.Envelope_SwarmHave:
+			if h := s.currentSwarmHandler(); h != nil {
+				h.OnSwarmHave(s.remote, body.SwarmHave)
+			}
+		case *peerv1.Envelope_GetSwarmSegment:
+			s.handleGetSwarmSegment(env.RequestId, body.GetSwarmSegment)
 		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
 			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_,
 			*peerv1.Envelope_PartyWelcome:
@@ -629,23 +636,22 @@ func (s *Session) handleGetPlaylist(reqID uint64, req *peerv1.GetPlaylist) {
 	}}})
 }
 
-// TODO(slice-4): handleGetSegment/handleDownload run inline on the control readLoop
-// and can block under bulk backpressure, stalling other control messages during a
-// transfer. Dispatch these to a worker goroutine when multi-stream support lands.
 func (s *Session) handleGetSegment(reqID uint64, req *peerv1.GetSegment) {
 	h := s.currentMediaHandler()
 	if h == nil {
 		_ = s.send(errEnvelope(reqID, ErrUnavailable))
 		return
 	}
-	data, err := h.Segment(s.remote, req.GetContentId(), req.GetName())
-	if err != nil {
-		_ = s.send(errEnvelope(reqID, err))
-		return
-	}
-	if serr := s.sendBulk(reqID, data); serr != nil {
-		_ = s.send(errEnvelope(reqID, serr))
-	}
+	go func() {
+		data, err := h.Segment(s.remote, req.GetContentId(), req.GetName())
+		if err != nil {
+			_ = s.send(errEnvelope(reqID, err))
+			return
+		}
+		if serr := s.sendBulk(reqID, data); serr != nil {
+			_ = s.send(errEnvelope(reqID, serr))
+		}
+	}()
 }
 
 func (s *Session) handleDownload(reqID uint64, req *peerv1.Download) {
@@ -654,13 +660,15 @@ func (s *Session) handleDownload(reqID uint64, req *peerv1.Download) {
 		_ = s.send(errEnvelope(reqID, ErrUnavailable))
 		return
 	}
-	rc, _, err := h.OpenFile(s.remote, req.GetContentId())
-	if err != nil {
-		_ = s.send(errEnvelope(reqID, err))
-		return
-	}
-	defer rc.Close()
-	if serr := s.sendBulkReader(reqID, rc); serr != nil {
-		_ = s.send(errEnvelope(reqID, serr))
-	}
+	go func() {
+		rc, _, err := h.OpenFile(s.remote, req.GetContentId())
+		if err != nil {
+			_ = s.send(errEnvelope(reqID, err))
+			return
+		}
+		defer rc.Close()
+		if serr := s.sendBulkReader(reqID, rc); serr != nil {
+			_ = s.send(errEnvelope(reqID, serr))
+		}
+	}()
 }

@@ -13,6 +13,7 @@ var (
 	ErrDenied      = errors.New("access denied")
 	ErrNotFound    = errors.New("not found")
 	ErrUnavailable = errors.New("unavailable")
+	ErrBusy        = errors.New("busy")
 )
 
 func statusOf(err error) peerv1.Error_Status {
@@ -23,6 +24,8 @@ func statusOf(err error) peerv1.Error_Status {
 		return peerv1.Error_NOT_FOUND
 	case errors.Is(err, ErrUnavailable):
 		return peerv1.Error_UNAVAILABLE
+	case errors.Is(err, ErrBusy):
+		return peerv1.Error_BUSY
 	default:
 		return peerv1.Error_INTERNAL
 	}
@@ -37,6 +40,8 @@ func statusErr(e *peerv1.Error) error {
 		base = ErrNotFound
 	case peerv1.Error_UNAVAILABLE:
 		base = ErrUnavailable
+	case peerv1.Error_BUSY:
+		base = ErrBusy
 	}
 	if e.GetDetail() != "" {
 		return fmt.Errorf("%w: %s", base, e.GetDetail())

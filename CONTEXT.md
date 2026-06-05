@@ -23,7 +23,7 @@ The Node that owns an original file and originates a stream (and later, a Watch 
 _Avoid_: seeder, server, owner.
 
 **Viewer**:
-A Node consuming a stream. A Viewer that re-serves cached segments in the Swarm is still a Viewer, acting as a relay.
+A Node consuming a stream. A Viewer that re-serves cached Segments in the Swarm is still a Viewer, acting as a relay.
 _Avoid_: guest, client, leecher.
 
 ### Content
@@ -31,6 +31,10 @@ _Avoid_: guest, client, leecher.
 **Title**:
 One shareable media item in a Library — one source file, identified by one Content ID. The unit a Viewer browses, streams, or downloads.
 _Avoid_: content, media, item, file, video.
+
+**Segment**:
+A short, contiguous chunk of a Title's stream — the granular unit a Viewer fetches, caches, verifies, and re-serves in the Swarm. Many Segments make up one Title's playback.
+_Avoid_: chunk, piece, part.
 
 **Library**:
 The full set of Titles a User shares from their Node. The owner's complete view.
@@ -67,3 +71,7 @@ _Avoid_: session, room, screening, party (alone).
 **Audience**:
 The set of Viewers currently in a Watch Party. Narrower than Presence (which is global online Nodes) and local to one Host's Watch Party. The Host plays to the Audience but is not part of it.
 _Avoid_: roster, room, members.
+
+**Swarm**:
+The Viewers of a Watch Party acting as a mesh that re-serves cached Segments to one another to share distribution load. Same membership as the Audience, seen as a distribution network rather than a sync group. The Host originates Segments to the Swarm but is not part of it.
+_Avoid_: cluster, mesh (alone), torrent.

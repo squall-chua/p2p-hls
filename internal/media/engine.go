@@ -27,6 +27,7 @@ type job struct {
 	dir      string
 	title    library.Title
 	complete bool
+	hashes   *SegmentHashes
 }
 
 // NewEngine constructs an Engine writing renditions under cacheDir.
@@ -54,6 +55,9 @@ func (e *Engine) File(ctx context.Context, contentID, name string) ([]byte, bool
 	path := filepath.Join(j.dir, filepath.Base(name)) // filepath.Base guards traversal
 	data, rerr := os.ReadFile(path)
 	if rerr == nil {
+		if name == "index.m3u8" {
+			data = InjectHashes(data, j.hashes)
+		}
 		return data, e.isComplete(j), nil
 	}
 	if errors.Is(rerr, fs.ErrNotExist) {
@@ -92,6 +96,7 @@ func (e *Engine) ensureJob(ctx context.Context, contentID string) (*job, error) 
 		return nil, mkerr
 	}
 	j := &job{dir: dir, title: title}
+	j.hashes = NewSegmentHashes(dir)
 	e.jobs[contentID] = j
 	e.mu.Unlock()
 

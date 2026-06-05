@@ -80,6 +80,21 @@ func (b *blockingRunner) Run(_ context.Context, _ []string) error {
 	return nil
 }
 
+func TestEngineInjectsSegmentHashesIntoIndexPlaylist(t *testing.T) {
+	eng, cid := newEngineWithTitle(t)
+	ctx := context.Background()
+
+	// Wait until index.m3u8 is produced by the fake runner.
+	require.Eventually(t, func() bool {
+		_, _, e := eng.File(ctx, cid, "index.m3u8")
+		return e == nil
+	}, 3*time.Second, 20*time.Millisecond)
+
+	data, _, err := eng.File(ctx, cid, "index.m3u8")
+	require.NoError(t, err)
+	require.Contains(t, string(data), "#EXT-X-P2P-HASH:")
+}
+
 func TestEngineSegmentNotReadyReturnsUnavailable(t *testing.T) {
 	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
 	require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/party"
 	"github.com/squall-chua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/swarm"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
@@ -18,6 +19,16 @@ import (
 type sender interface {
 	sendTo(node identity.NodeID, env *peerv1.Envelope) error
 	measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error)
+}
+
+// swarmTransport is the superset of sender used by the viewer swarm session.
+type swarmTransport interface {
+	sendTo(node identity.NodeID, env *peerv1.Envelope) error
+	measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error)
+	fetchSwarmSegment(ctx context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error)
+	ensurePeer(node identity.NodeID) error
+	hostPlaylist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error)
+	hostSegment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, error)
 }
 
 type partyCoordinator struct {
@@ -31,6 +42,7 @@ type partyCoordinator struct {
 	host       *party.Host
 	viewer     *party.Viewer
 	viewerHost identity.NodeID
+	swarm      *swarmSession
 	stopHB     chan struct{}
 }
 
@@ -96,13 +108,33 @@ func (pc *partyCoordinator) beginViewer(host identity.NodeID) {
 
 // JoinParty connects (must already have a session) and joins host's party for
 // contentID. The caller passes a function that performs the JoinParty RPC.
-func (pc *partyCoordinator) JoinParty(ctx context.Context, host identity.NodeID,
+func (pc *partyCoordinator) JoinParty(ctx context.Context, host identity.NodeID, contentID string,
 	do func(ctx context.Context) (*peerv1.PartyWelcome, error)) error {
 	w, err := do(ctx)
 	if err != nil {
 		return err
 	}
 	pc.beginViewer(host)
+	if tr, ok := pc.send.(swarmTransport); ok { // fake senders in unit tests skip the swarm
+		ss := newSwarmSession(tr, pc.self, host, contentID, swarm.RealClock(), swarm.DefaultConfig())
+		ss.setPartyID(w.GetPartyId())
+		pc.mu.Lock()
+		old := pc.swarm
+		pc.swarm = ss
+		pc.mu.Unlock()
+		if old != nil { // re-join: stop the prior session's gossip loop
+			old.close()
+		}
+		// seed peers from the welcome's audience, then start gossiping
+		if a := w.GetAudience(); a != nil {
+			members := make([]identity.NodeID, 0, len(a.GetMembers()))
+			for _, m := range a.GetMembers() {
+				members = append(members, identity.NodeID(m.GetNodeId()))
+			}
+			ss.setPeers(members)
+		}
+		ss.start()
+	}
 	if init := w.GetInitial(); init != nil {
 		pc.OnPartyState(host, init)
 	}
@@ -164,7 +196,19 @@ func (pc *partyCoordinator) OnPartyState(remote identity.NodeID, s *peerv1.Party
 	v.OnState(fromWireState(s), pc.clock.Now())
 }
 
-func (pc *partyCoordinator) OnPartyAudience(identity.NodeID, *peerv1.PartyAudience) {}
+func (pc *partyCoordinator) OnPartyAudience(_ identity.NodeID, a *peerv1.PartyAudience) {
+	pc.mu.Lock()
+	ss := pc.swarm
+	pc.mu.Unlock()
+	if ss == nil {
+		return
+	}
+	members := make([]identity.NodeID, 0, len(a.GetMembers()))
+	for _, m := range a.GetMembers() {
+		members = append(members, identity.NodeID(m.GetNodeId()))
+	}
+	ss.setPeers(members)
+}
 
 func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) {
 	// Invite is a UI signal; a real UI would surface it and let the user call
@@ -173,10 +217,16 @@ func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) 
 
 func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.PartyEnded) {
 	pc.mu.Lock()
+	var ss *swarmSession
 	if remote == pc.viewerHost {
-		pc.viewer = nil // drop to solo playback; player keeps running
+		pc.viewer = nil
+		ss = pc.swarm
+		pc.swarm = nil
 	}
 	pc.mu.Unlock()
+	if ss != nil {
+		ss.close()
+	}
 }
 
 // --- heartbeat ---
@@ -211,6 +261,45 @@ func (pc *partyCoordinator) broadcastAudience(h *party.Host) {
 	for _, m := range h.Members() {
 		_ = pc.send.sendTo(m.NodeID, env)
 	}
+}
+
+func (pc *partyCoordinator) OnSwarmHave(remote identity.NodeID, h *peerv1.SwarmHave) {
+	pc.mu.Lock()
+	ss := pc.swarm
+	pc.mu.Unlock()
+	if ss != nil {
+		ss.OnSwarmHave(remote, h)
+	}
+}
+
+func (pc *partyCoordinator) SwarmSegment(remote identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, func(), error) {
+	pc.mu.Lock()
+	ss := pc.swarm
+	pc.mu.Unlock()
+	if ss == nil {
+		return nil, nil, peer.ErrUnavailable
+	}
+	return ss.SwarmSegment(remote, req)
+}
+
+// swarmFor returns the active viewer swarm session iff it matches (host, contentID).
+func (pc *partyCoordinator) swarmFor(host identity.NodeID, contentID string) *swarmSession {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.swarm != nil && pc.swarm.host == host && pc.swarm.contentID == contentID {
+		return pc.swarm
+	}
+	return nil
+}
+
+// activePartyID returns the viewed party id, or "" if none.
+func (pc *partyCoordinator) activePartyID() string {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.swarm != nil {
+		return pc.swarm.partyID
+	}
+	return ""
 }
 
 // viewerDecide is a test seam for the viewer correction (used by the WS loop).
