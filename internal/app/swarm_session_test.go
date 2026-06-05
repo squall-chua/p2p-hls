@@ -87,3 +87,19 @@ func TestFetchSegmentRejectsPoisonAndDemotesThenHostFallback(t *testing.T) {
 	_, ok := ss.eng.PeerHasForTest("liar", 2)
 	require.False(t, ok)
 }
+
+func TestFetchSegmentSkipsPeersWhenHashUnknown(t *testing.T) {
+	good := []byte("real-host-bytes")
+	ft := &fakeTransport{
+		peerSeg:  map[string][]byte{"liar|seg00002.ts": []byte("POISON")},
+		hostSeg:  map[string][]byte{"seg00002.ts": good},
+		playlist: nil, // Host playlist/hash unavailable -> want == ""
+	}
+	ss := newSwarmSession(ft, "self", "host", "cid", swarm.RealClock(), swarm.DefaultConfig())
+	ss.setPeers([]identity.NodeID{"liar"})
+	ss.eng.OnPeerHave("liar", 2, []byte{0x01}, 1, time.Now())
+
+	got, err := ss.FetchSegment(context.Background(), "seg00002.ts")
+	require.NoError(t, err)
+	require.Equal(t, good, got) // never served the peer's POISON; fell back to Host
+}

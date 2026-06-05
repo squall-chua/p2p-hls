@@ -21,9 +21,12 @@ type swarmSession struct {
 	self      identity.NodeID
 	host      identity.NodeID
 	contentID string
-	partyID   string
-	clock     swarm.Clock
-	cfg       swarm.Config
+	// partyID is effectively immutable after construction: set once via setPartyID
+	// before start()/publication to pc.swarm, so gossipLoop and FetchSegment read it
+	// without ss.mu.
+	partyID string
+	clock   swarm.Clock
+	cfg     swarm.Config
 
 	mu        sync.Mutex
 	eng       *swarm.Swarm
@@ -121,34 +124,39 @@ func (ss *swarmSession) FetchSegment(ctx context.Context, segName string) ([]byt
 
 	want := ss.expectedHash(ctx, segName)
 
-	for {
-		ss.mu.Lock()
-		src, ok := ss.eng.SelectSource(idx, ss.clock.Now())
-		ss.mu.Unlock()
-		if !ok {
-			break
-		}
-		data, err := ss.t.fetchSwarmSegment(ctx, src, &peerv1.GetSwarmSegment{
-			PartyId: ss.partyID, Rendition: swarmRendition, SegName: segName,
-		})
-		if err != nil {
+	// Only pull from peers when we have a Host-published hash to verify against.
+	// With no hash, peer bytes can't be verified, so fail closed: skip peers and
+	// go straight to the Host (the trust origin, whose bytes are acceptable raw).
+	if want != "" {
+		for {
 			ss.mu.Lock()
-			if isBusy(err) {
-				ss.eng.MarkBusy(src, ss.clock.Now())
-			} else {
-				ss.eng.Demote(src)
+			src, ok := ss.eng.SelectSource(idx, ss.clock.Now())
+			ss.mu.Unlock()
+			if !ok {
+				break
 			}
-			ss.mu.Unlock()
-			continue
+			data, err := ss.t.fetchSwarmSegment(ctx, src, &peerv1.GetSwarmSegment{
+				PartyId: ss.partyID, Rendition: swarmRendition, SegName: segName,
+			})
+			if err != nil {
+				ss.mu.Lock()
+				if isBusy(err) {
+					ss.eng.MarkBusy(src, ss.clock.Now())
+				} else {
+					ss.eng.Demote(src)
+				}
+				ss.mu.Unlock()
+				continue
+			}
+			if !swarm.VerifySegment(data, want) {
+				ss.mu.Lock()
+				ss.eng.Demote(src)
+				ss.mu.Unlock()
+				continue
+			}
+			ss.store(idx, data)
+			return data, nil
 		}
-		if want != "" && !swarm.VerifySegment(data, want) {
-			ss.mu.Lock()
-			ss.eng.Demote(src)
-			ss.mu.Unlock()
-			continue
-		}
-		ss.store(idx, data)
-		return data, nil
 	}
 
 	data, err := ss.t.hostSegment(ctx, ss.host, ss.contentID, segName)

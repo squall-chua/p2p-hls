@@ -119,8 +119,12 @@ func (pc *partyCoordinator) JoinParty(ctx context.Context, host identity.NodeID,
 		ss := newSwarmSession(tr, pc.self, host, contentID, swarm.RealClock(), swarm.DefaultConfig())
 		ss.setPartyID(w.GetPartyId())
 		pc.mu.Lock()
+		old := pc.swarm
 		pc.swarm = ss
 		pc.mu.Unlock()
+		if old != nil { // re-join: stop the prior session's gossip loop
+			old.close()
+		}
 		// seed peers from the welcome's audience, then start gossiping
 		if a := w.GetAudience(); a != nil {
 			members := make([]identity.NodeID, 0, len(a.GetMembers()))
