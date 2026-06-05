@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -42,7 +43,11 @@ func (r relaySignaler) SendSignal(to identity.NodeID, s peer.SignedSignal) error
 	if err != nil {
 		return err
 	}
-	return r.client.SendRelay(to, payload)
+	wrapped, err := peer.EncodeRelay(peer.RelayKindSignal, json.RawMessage(payload))
+	if err != nil {
+		return err
+	}
+	return r.client.SendRelay(to, wrapped)
 }
 
 // NewNode connects to signaling and starts routing inbound relays.
@@ -69,17 +74,62 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 func (n *Node) routeRelays() {
 	for rel := range n.client.Relays() {
 		from := identity.NodeID(rel.From)
-		sig, err := peer.DecodeSignedSignal(rel.Payload)
+		kind, data, err := peer.DecodeRelay(rel.Payload)
 		if err != nil {
 			continue
 		}
-		sess, err := n.sessionFor(from, false)
-		if err != nil {
-			slog.Warn("failed to create session for inbound relay", "from", from, "err", err)
-			continue
+		switch kind {
+		case peer.RelayKindSignal:
+			sig, derr := peer.DecodeSignedSignal(data)
+			if derr != nil {
+				continue
+			}
+			sess, serr := n.sessionFor(from, false)
+			if serr != nil {
+				slog.Warn("failed to create session for inbound relay", "from", from, "err", serr)
+				continue
+			}
+			_ = sess.HandleSignal(sig)
+		case peer.RelayKindSwarmDial:
+			// A peer wants us to dial it. We are the lower NodeID for this edge.
+			if shouldDial(n.self.NodeID(), from) {
+				go func(to identity.NodeID) {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					_, _ = n.Dial(ctx, to)
+				}(from)
+			}
 		}
-		_ = sess.HandleSignal(sig)
 	}
+}
+
+// shouldDial implements the glare rule: the lower NodeID is the initiator.
+func shouldDial(self, peer identity.NodeID) bool { return self < peer }
+
+// ensurePeer makes sure a session to node exists, applying glare resolution. If we
+// are the lower NodeID we dial; otherwise we send a SwarmDial nudge so the peer
+// (the lower NodeID) dials us. Non-blocking for the nudge path.
+func (n *Node) ensurePeer(node identity.NodeID) error {
+	n.mu.Lock()
+	_, have := n.sessions[node]
+	n.mu.Unlock()
+	if have {
+		return nil
+	}
+	if shouldDial(n.self.NodeID(), node) {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_, _ = n.Dial(ctx, node)
+		}()
+		return nil
+	}
+	payload, err := peer.EncodeRelay(peer.RelayKindSwarmDial,
+		peer.SwarmDial{PartyID: n.party.activePartyID(), From: string(n.self.NodeID())})
+	if err != nil {
+		return err
+	}
+	return n.client.SendRelay(node, payload)
 }
 
 // sendTo implements sender: sends an Envelope to a remote node.

@@ -213,6 +213,10 @@ func (pc *partyCoordinator) broadcastAudience(h *party.Host) {
 	}
 }
 
+// activePartyID returns the viewed party id, or "" if none. (Completed in the swarm
+// session wiring; stubbed until then.)
+func (pc *partyCoordinator) activePartyID() string { return "" }
+
 // viewerDecide is a test seam for the viewer correction (used by the WS loop).
 func (pc *partyCoordinator) viewerDecide(posMS int64, playing bool, now time.Time) party.Action {
 	pc.mu.Lock()
