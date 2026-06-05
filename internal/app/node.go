@@ -199,6 +199,7 @@ func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session
 	}
 	if n.party != nil {
 		s.SetPartyHandler(n.party)
+		s.SetSwarmHandler(n.party)
 		s.SetOnClose(func(node identity.NodeID) { n.party.OnLeaveParty(node, "") })
 	}
 	if !initiator {
@@ -270,6 +271,13 @@ func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, na
 
 // Segment implements bridge.Streamer.
 func (n *Node) Segment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	if ss := n.party.swarmFor(host, contentID); ss != nil {
+		data, err := ss.FetchSegment(ctx, name)
+		if err != nil {
+			return nil, "", err
+		}
+		return data, contentTypeFor(name), nil
+	}
 	sess, err := n.session(ctx, host)
 	if err != nil {
 		return nil, "", err
@@ -357,7 +365,7 @@ func (n *Node) JoinParty(ctx context.Context, host identity.NodeID, contentID st
 	if err != nil {
 		return err
 	}
-	return n.party.JoinParty(ctx, host, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
+	return n.party.JoinParty(ctx, host, contentID, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
 		return s.JoinParty(ctx, contentID)
 	})
 }

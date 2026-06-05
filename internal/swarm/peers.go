@@ -61,6 +61,15 @@ func (s *Swarm) peerHas(node identity.NodeID, idx int) bool {
 	return p != nil && p.have[idx]
 }
 
+// PeerHasForTest exposes peer-have state for cross-package tests.
+func (s *Swarm) PeerHasForTest(node identity.NodeID, idx int) (bool, bool) {
+	p := s.peers[node]
+	if p == nil || p.demoted {
+		return false, false
+	}
+	return p.have[idx], true
+}
+
 // ExpireStale drops have-maps from peers unheard-from beyond HaveTTL (keeps the peer
 // record so it can re-gossip; just clears its haves).
 func (s *Swarm) ExpireStale(now time.Time) {
