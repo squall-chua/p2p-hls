@@ -1,6 +1,7 @@
 package swarm
 
 import (
+	"sort"
 	"time"
 
 	"github.com/squall-chua/p2p-hls/internal/identity"
@@ -31,6 +32,56 @@ func (s *Swarm) Demote(node identity.NodeID) {
 		p.demoted = true
 		p.have = map[int]bool{}
 	}
+}
+
+// GossipTargets picks up to Fanout peers to push a have-map to this round: the
+// (Fanout-RandomLinks) lowest-RTT peers plus RandomLinks uniformly-random others.
+// The random links preserve epidemic mixing so proximity bias cannot cluster the
+// mesh. Uses the injected RNG, so a seeded RNG makes selection deterministic.
+func (s *Swarm) GossipTargets() []identity.NodeID {
+	peers := s.Peers() // excludes demoted; excludes self (not in peers)
+	if len(peers) <= s.cfg.Fanout {
+		return peers
+	}
+	// Stable order for determinism before RTT sort / shuffle.
+	sort.Slice(peers, func(i, j int) bool { return peers[i] < peers[j] })
+
+	near := s.cfg.Fanout - s.cfg.RandomLinks
+	if near < 0 {
+		near = 0
+	}
+	byRTT := make([]identity.NodeID, len(peers))
+	copy(byRTT, peers)
+	sort.SliceStable(byRTT, func(i, j int) bool {
+		return s.rttOf(byRTT[i]) < s.rttOf(byRTT[j])
+	})
+
+	chosen := map[identity.NodeID]bool{}
+	out := []identity.NodeID{}
+	for i := 0; i < near && i < len(byRTT); i++ {
+		chosen[byRTT[i]] = true
+		out = append(out, byRTT[i])
+	}
+	// Random links from the remaining peers.
+	var pool []identity.NodeID
+	for _, id := range peers {
+		if !chosen[id] {
+			pool = append(pool, id)
+		}
+	}
+	for i := 0; i < s.cfg.RandomLinks && len(pool) > 0; i++ {
+		k := s.rng.Intn(len(pool))
+		out = append(out, pool[k])
+		pool = append(pool[:k], pool[k+1:]...)
+	}
+	return out
+}
+
+func (s *Swarm) rttOf(id identity.NodeID) time.Duration {
+	if p := s.peers[id]; p != nil && p.haveRTT {
+		return p.rtt
+	}
+	return time.Hour
 }
 
 // SelectSource returns the lowest-RTT eligible peer that advertises Segment idx, or
