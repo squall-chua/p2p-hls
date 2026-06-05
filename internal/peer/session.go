@@ -46,6 +46,7 @@ type Session struct {
 	lowSig       chan struct{}
 
 	partyHandler PartyHandler
+	swarmHandler SwarmHandler
 	remoteCaps   []string
 	onClose      func(identity.NodeID)
 }
@@ -237,6 +238,12 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			if h := s.currentPartyHandler(); h != nil {
 				h.OnPartyEnded(s.remote, body.PartyEnded)
 			}
+		case *peerv1.Envelope_SwarmHave:
+			if h := s.currentSwarmHandler(); h != nil {
+				h.OnSwarmHave(s.remote, body.SwarmHave)
+			}
+		case *peerv1.Envelope_GetSwarmSegment:
+			s.handleGetSwarmSegment(env.RequestId, body.GetSwarmSegment)
 		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
 			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_,
 			*peerv1.Envelope_PartyWelcome:
