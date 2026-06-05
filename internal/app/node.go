@@ -83,7 +83,7 @@ func (n *Node) routeRelays() {
 			if derr != nil {
 				continue
 			}
-			sess, serr := n.sessionFor(from, false)
+			sess, _, serr := n.sessionFor(from, false)
 			if serr != nil {
 				slog.Warn("failed to create session for inbound relay", "from", from, "err", serr)
 				continue
@@ -131,9 +131,36 @@ func (n *Node) ensurePeer(node identity.NodeID) error {
 	return n.client.SendRelay(node, payload)
 }
 
+// peerSession returns a ready session to a swarm peer, honoring the glare rule.
+// Unlike session (which always dials, correct for the viewer->Host edge), a mesh
+// edge is symmetric: only the lower NodeID dials. If we are the dialer we dial;
+// otherwise we nudge the peer to dial us and report ErrUnavailable so the caller
+// (a periodic, idempotent gossip/pull) skips this round and retries once the
+// answerer session is up. This prevents two simultaneous offers from colliding.
+func (n *Node) peerSession(ctx context.Context, node identity.NodeID) (*peer.Session, error) {
+	n.mu.Lock()
+	s, ok := n.sessions[node]
+	n.mu.Unlock()
+	if ok {
+		select {
+		case <-s.Ready():
+			return s, nil
+		default:
+			return nil, peer.ErrUnavailable
+		}
+	}
+	if shouldDial(n.self.NodeID(), node) {
+		return n.Dial(ctx, node)
+	}
+	if err := n.ensurePeer(node); err != nil {
+		return nil, err
+	}
+	return nil, peer.ErrUnavailable
+}
+
 // sendTo implements sender: sends an Envelope to a remote node.
 func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
-	s, err := n.session(context.Background(), node)
+	s, err := n.peerSession(context.Background(), node)
 	if err != nil {
 		return err
 	}
@@ -142,7 +169,7 @@ func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
 
 // fetchSwarmSegment pulls a Segment from a peer Viewer over its bulk channel.
 func (n *Node) fetchSwarmSegment(ctx context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
-	s, err := n.session(ctx, node)
+	s, err := n.peerSession(ctx, node)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +197,7 @@ func (n *Node) hostSegment(ctx context.Context, host identity.NodeID, contentID,
 
 // measureRTT implements sender: times a Ping round trip to a remote node.
 func (n *Node) measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error) {
-	s, err := n.session(ctx, node)
+	s, err := n.peerSession(ctx, node)
 	if err != nil {
 		return 0, err
 	}
@@ -178,16 +205,18 @@ func (n *Node) measureRTT(ctx context.Context, node identity.NodeID) (time.Durat
 }
 
 // sessionFor returns the existing session for remote, or creates one. When
-// created as an answerer (initiator=false) it is started immediately.
-func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session, error) {
+// created as an answerer (initiator=false) it is started immediately. The
+// returned bool reports whether this call created the session (false if it
+// already existed), so callers can avoid re-negotiating an established edge.
+func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session, bool, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if s, ok := n.sessions[remote]; ok {
-		return s, nil
+		return s, false, nil
 	}
 	s, err := peer.NewSession(n.self, remote, n.rtcCfg, relaySignaler{client: n.client})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	n.sessions[remote] = s
 	if n.catalog != nil {
@@ -204,7 +233,7 @@ func (n *Node) sessionFor(remote identity.NodeID, initiator bool) (*peer.Session
 	if !initiator {
 		_ = s.Start(context.Background(), false)
 	}
-	return s, nil
+	return s, true, nil
 }
 
 // Sees reports whether remote is currently in presence.
@@ -218,14 +247,19 @@ func (n *Node) Sees(remote identity.NodeID) bool {
 }
 
 // Dial opens (or returns) a session to remote and blocks until it is ready.
-// NOTE(slice-3): if a session for remote was already created as an answerer, calling Start(true) here would double-negotiate (dial-vs-answer glare). Only one side dials in Slice 1; glare resolution is future work.
+// It only drives the offer (Start as initiator) when it actually created the
+// session; an already-existing session (created earlier as initiator or as an
+// answerer) is just awaited, so concurrent Dials never re-negotiate and tear
+// down an established edge.
 func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session, error) {
-	sess, err := n.sessionFor(remote, true)
+	sess, created, err := n.sessionFor(remote, true)
 	if err != nil {
 		return nil, err
 	}
-	if err := sess.Start(ctx, true); err != nil {
-		return nil, err
+	if created {
+		if err := sess.Start(ctx, true); err != nil {
+			return nil, err
+		}
 	}
 	select {
 	case <-sess.Ready():
