@@ -37,6 +37,35 @@ func TestSPAFallbackServesIndexForUnknownRoute(t *testing.T) {
 	}
 }
 
+func TestInjectBootstrapMarker(t *testing.T) {
+	boot := `<script>window.__P2P__={"token":"t"}</script>`
+	out := bridge.InjectBootstrapForTest(`<body><!--__P2P_BOOTSTRAP__--></body>`, boot)
+	if !strings.Contains(out, boot) || strings.Contains(out, "__P2P_BOOTSTRAP__") {
+		t.Fatalf("marker path: %s", out)
+	}
+}
+
+func TestInjectBootstrapFallbackBeforeHead(t *testing.T) {
+	boot := `<script>window.__P2P__={"token":"t"}</script>`
+	// Nuxt SPA shell: no marker, but has </head>
+	out := bridge.InjectBootstrapForTest(`<html><head><title>x</title></head><body><div id="__nuxt"></div></body></html>`, boot)
+	if !strings.Contains(out, boot) {
+		t.Fatalf("fallback did not inject: %s", out)
+	}
+	// must be injected BEFORE </head> (so it runs before the app mounts)
+	if strings.Index(out, boot) > strings.Index(out, "</head>") {
+		t.Fatalf("bootstrap not before </head>: %s", out)
+	}
+}
+
+func TestInjectBootstrapNoHeadPrepends(t *testing.T) {
+	boot := `<script>window.__P2P__={"token":"t"}</script>`
+	out := bridge.InjectBootstrapForTest(`<div id="__nuxt"></div>`, boot)
+	if !strings.HasPrefix(out, boot) {
+		t.Fatalf("no-head path should prepend: %s", out)
+	}
+}
+
 func TestBootstrapEscapesScriptBreakout(t *testing.T) {
 	b := bridge.New(fakeStreamer{}, "secret-token")
 	b.SetBootstrap("n1", "</script><script>alert(1)</script>")

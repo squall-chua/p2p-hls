@@ -45,9 +45,22 @@ func (b *Bridge) handleStatic(w http.ResponseWriter, r *http.Request) {
 	b.mu.Lock()
 	boot := fmt.Sprintf(`<script>window.__P2P__=%s</script>`, b.bootstrapJSON())
 	b.mu.Unlock()
-	out := strings.Replace(string(data), "<!--__P2P_BOOTSTRAP__-->", boot, 1)
+	out := injectBootstrap(string(data), boot)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(out))
+}
+
+// injectBootstrap places the bootstrap <script> into the SPA HTML. It prefers the
+// explicit marker; if absent (the real Nuxt ssr:false build strips HTML comments),
+// it injects just before </head>; failing that, it prepends.
+func injectBootstrap(html, boot string) string {
+	if strings.Contains(html, "<!--__P2P_BOOTSTRAP__-->") {
+		return strings.Replace(html, "<!--__P2P_BOOTSTRAP__-->", boot, 1)
+	}
+	if i := strings.Index(html, "</head>"); i >= 0 {
+		return html[:i] + boot + html[i:]
+	}
+	return boot + html
 }
 
 // bootstrapJSON builds the injected window.__P2P__ object. json.Marshal
