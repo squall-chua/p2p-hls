@@ -31,6 +31,7 @@ type Bridge struct {
 	partyHandler func(*websocket.Conn)
 	upgrader     websocket.Upgrader
 	control      Control
+	events       Subscriber
 }
 
 // New constructs a Bridge that requires the given session token.
@@ -59,6 +60,7 @@ func (b *Bridge) Start(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/s/", b.handleStream)
 	mux.HandleFunc("/party/", b.handleParty)
+	mux.HandleFunc("/api/events", b.handleSSE)
 	mux.HandleFunc("/api/", b.handleAPI)
 	b.srv = &http.Server{Handler: mux}
 	go b.srv.Serve(ln)
