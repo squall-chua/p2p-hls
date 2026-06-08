@@ -77,6 +77,34 @@ func TestAPISelf(t *testing.T) {
 	}
 }
 
+func TestAPIPresenceLibraryRequests(t *testing.T) {
+	c := &fakeControl{
+		presence: []bridge.PeerView{{NodeID: "n2", DisplayName: "Bob", Online: true}},
+		library:  []bridge.TitleView{{ContentID: "cid1", DisplayTitle: "Movie"}},
+		pending:  []string{"n3"},
+	}
+	_, base := newTestBridge(t, c)
+
+	var peers []bridge.PeerView
+	resp := apiGET(t, base, "/api/presence")
+	json.NewDecoder(resp.Body).Decode(&peers)
+	if len(peers) != 1 || peers[0].DisplayName != "Bob" {
+		t.Fatalf("presence %+v", peers)
+	}
+
+	var lib []bridge.TitleView
+	json.NewDecoder(apiGET(t, base, "/api/library").Body).Decode(&lib)
+	if len(lib) != 1 || lib[0].ContentID != "cid1" {
+		t.Fatalf("library %+v", lib)
+	}
+
+	var reqs []string
+	json.NewDecoder(apiGET(t, base, "/api/requests").Body).Decode(&reqs)
+	if len(reqs) != 1 || reqs[0] != "n3" {
+		t.Fatalf("requests %+v", reqs)
+	}
+}
+
 func TestAPIRejectsMissingToken(t *testing.T) {
 	_, base := newTestBridge(t, &fakeControl{})
 	resp, _ := http.Get(base + "/api/self") // no Authorization header

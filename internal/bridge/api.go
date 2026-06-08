@@ -93,6 +93,17 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "self" && r.Method == http.MethodGet:
 		writeJSON(w, c.Self())
+	case path == "presence" && r.Method == http.MethodGet:
+		writeJSON(w, c.Presence())
+	case path == "library" && r.Method == http.MethodGet:
+		lib, err := c.Library()
+		if err != nil {
+			http.Error(w, err.Error(), statusForErr(err))
+			return
+		}
+		writeJSON(w, lib)
+	case path == "requests" && r.Method == http.MethodGet:
+		writeJSON(w, c.PendingRequests())
 	default:
 		http.NotFound(w, r)
 	}
