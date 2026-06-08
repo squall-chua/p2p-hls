@@ -7,4 +7,5 @@ node_modules/
 webui/node_modules/
 webui/.nuxt/
 webui/.output/
-internal/bridge/dist/assets/
+internal/bridge/dist/*
+!internal/bridge/dist/index.html

@@ -21,6 +21,7 @@ import (
 func main() {
 	name := flag.String("name", "anonymous", "display name")
 	noOpen := flag.Bool("no-open", false, "do not open the browser")
+	bridgeAddr := flag.String("bridge-addr", "127.0.0.1:0", "loopback bridge bind address")
 	flag.Parse()
 
 	configDir, err := app.ConfigDir()
@@ -56,7 +57,7 @@ func main() {
 	br.SetEvents(node.Events())
 	br.SetBootstrap(string(id.NodeID()), *name)
 	br.SetPartyHandler(node.PartyWS())
-	if err := br.Start("127.0.0.1:0"); err != nil {
+	if err := br.Start(*bridgeAddr); err != nil {
 		fatal(err)
 	}
 	defer br.Close()
