@@ -82,6 +82,31 @@ func TestOnPartyEndedFiresCallback(t *testing.T) {
 	}
 }
 
+func TestLeavePartyIgnoresStalePartyEnded(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	fired := make(chan struct{}, 1)
+	pc.onPartyEnded = func() { fired <- struct{}{} }
+	pc.LeaveParty()
+	// A late PartyEnded from the host we already left must not fire the callback.
+	pc.OnPartyEnded("host1", &peerv1.PartyEnded{})
+	select {
+	case <-fired:
+		t.Fatal("stale PartyEnded fired onPartyEnded after leave")
+	default:
+	}
+}
+
+func TestOnPartyEndedIgnoresDuplicate(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	count := 0
+	pc.onPartyEnded = func() { count++ }
+	pc.OnPartyEnded("host1", &peerv1.PartyEnded{})
+	pc.OnPartyEnded("host1", &peerv1.PartyEnded{}) // duplicate/stale from the old host
+	require.Equal(t, 1, count, "onPartyEnded must fire exactly once")
+}
+
 func TestCoordinatorViewerIngestsState(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("viewer"), party.RealClock(), party.DefaultConfig())
 	pc.beginViewer(identity.NodeID("host"))
