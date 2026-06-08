@@ -26,6 +26,29 @@ func TestServesSPAWithInjectedToken(t *testing.T) {
 	}
 }
 
+func TestIndexHTMLInjectsToken(t *testing.T) {
+	b := bridge.New(fakeStreamer{}, "secret-token")
+	b.SetBootstrap("n1", "Alice")
+	_ = b.Start("127.0.0.1:0")
+	t.Cleanup(func() { b.Close() })
+
+	// Don't follow redirects: /index.html must serve the injected page directly
+	// (200), behaving identically to "/" rather than 301-bouncing to "./".
+	c := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := c.Get(b.BaseURL() + "/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("/index.html status = %d, want 200 (injected, not a redirect)", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+	if !strings.Contains(s, `window.__P2P__`) || !strings.Contains(s, "secret-token") {
+		t.Fatalf("/index.html not injected: %s", s)
+	}
+}
+
 func TestSPAFallbackServesIndexForUnknownRoute(t *testing.T) {
 	b := bridge.New(fakeStreamer{}, "secret-token")
 	b.SetBootstrap("n1", "Alice")
