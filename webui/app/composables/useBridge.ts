@@ -39,6 +39,7 @@ export function useBridge() {
     joinParty: (hostNodeId: string, contentId: string) => api<void>('/api/party/join', { method: 'POST', body: JSON.stringify({ hostNodeId, contentId }) }),
     leaveParty: () => api<void>('/api/party/leave', { method: 'POST' }),
     endParty: () => api<void>('/api/party/end', { method: 'POST' }),
+    audience: () => api<any[]>('/api/party/audience'),
     streamURL: (host: string, contentId: string) => `/s/${token}/${host}/${contentId}/index.m3u8`,
     eventsURL: () => `/api/events?token=${encodeURIComponent(token)}`,
     partyWSURL: () => {
