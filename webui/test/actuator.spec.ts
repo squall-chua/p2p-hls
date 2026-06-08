@@ -1,0 +1,34 @@
+import { describe, it, expect } from 'vitest'
+import { planViewerActuation, hostMessageFor, formatDrift } from '../app/lib/actuator'
+
+describe('planViewerActuation', () => {
+  it('hard-seeks when action.seek', () => {
+    const p = planViewerActuation({ play: true, seek: true, seekMs: 42000, rate: 1, driftMs: 1500 })
+    expect(p).toEqual({ seekTo: 42, rate: 1, play: true })
+  })
+  it('rate-nudges without seeking', () => {
+    const p = planViewerActuation({ play: true, seek: false, seekMs: 0, rate: 1.05, driftMs: -200 })
+    expect(p).toEqual({ seekTo: null, rate: 1.05, play: true })
+  })
+  it('pauses when action.play is false', () => {
+    const p = planViewerActuation({ play: false, seek: false, seekMs: 0, rate: 1, driftMs: 0 })
+    expect(p.play).toBe(false)
+  })
+})
+
+describe('hostMessageFor', () => {
+  it('maps a play event', () => {
+    expect(hostMessageFor('play', { currentTime: 12.4, paused: false })).toEqual({ type: 'play', posMs: 12400, playing: true })
+  })
+  it('maps a timeupdate to a report', () => {
+    expect(hostMessageFor('timeupdate', { currentTime: 30, paused: false })).toEqual({ type: 'report', posMs: 30000, playing: true })
+  })
+})
+
+describe('formatDrift', () => {
+  it('renders signed seconds', () => {
+    expect(formatDrift(200)).toBe('+0.2s')
+    expect(formatDrift(-1500)).toBe('-1.5s')
+    expect(formatDrift(0)).toBe('±0.0s')
+  })
+})
