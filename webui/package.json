@@ -21,6 +21,7 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@vue/test-utils": "^2.4.11",
     "happy-dom": "^20.10.2",
     "vitest": "^4.1.8"
