@@ -1,0 +1,53 @@
+package bridge_test
+
+import (
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/squall-chua/p2p-hls/internal/bridge"
+)
+
+func TestServesSPAWithInjectedToken(t *testing.T) {
+	b := bridge.New(fakeStreamer{}, "secret-token")
+	b.SetBootstrap("n1", "Alice")
+	_ = b.Start("127.0.0.1:0")
+	t.Cleanup(func() { b.Close() })
+
+	resp, err := http.Get(b.BaseURL() + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+	if !strings.Contains(s, `window.__P2P__`) || !strings.Contains(s, "secret-token") || !strings.Contains(s, "Alice") {
+		t.Fatalf("token not injected: %s", s)
+	}
+}
+
+func TestSPAFallbackServesIndexForUnknownRoute(t *testing.T) {
+	b := bridge.New(fakeStreamer{}, "secret-token")
+	b.SetBootstrap("n1", "Alice")
+	_ = b.Start("127.0.0.1:0")
+	t.Cleanup(func() { b.Close() })
+	resp, _ := http.Get(b.BaseURL() + "/peer/n2") // client route, not a file
+	if resp.StatusCode != 200 {
+		t.Fatalf("fallback status %d", resp.StatusCode)
+	}
+}
+
+func TestBootstrapEscapesScriptBreakout(t *testing.T) {
+	b := bridge.New(fakeStreamer{}, "secret-token")
+	b.SetBootstrap("n1", "</script><script>alert(1)</script>")
+	_ = b.Start("127.0.0.1:0")
+	t.Cleanup(func() { b.Close() })
+	resp, _ := http.Get(b.BaseURL() + "/")
+	body, _ := io.ReadAll(resp.Body)
+	s := string(body)
+	// Only the one real closing tag of our injected <script> may appear;
+	// the name's </script> must be escaped to </script>.
+	if strings.Count(s, "</script>") != 1 {
+		t.Fatalf("script breakout not escaped: %s", s)
+	}
+}
