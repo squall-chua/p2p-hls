@@ -118,3 +118,16 @@ func TestViewerConvergesViaNudge(t *testing.T) {
 	}
 	require.LessOrEqual(t, drift, cfg.DeadbandMS, "viewer should converge into the deadband")
 }
+
+func TestDecideReportsDrift(t *testing.T) {
+	clk := newFakeClock()
+	v := party.NewViewer(clk, party.DefaultConfig())
+	now := clk.Now()
+	// host at 10_000ms, playing, seq 1
+	v.OnState(party.State{PartyID: "p", Playing: true, PositionMS: 10_000, Rate: 1, Seq: 1}, now)
+	// viewer reports 10_300ms -> ~+300ms drift (owd 0, no time advanced)
+	act := v.Decide(10_300, true, now)
+	if act.DriftMS == 0 {
+		t.Fatalf("expected non-zero drift, got %+v", act)
+	}
+}

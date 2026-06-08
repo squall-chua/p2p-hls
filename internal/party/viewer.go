@@ -65,12 +65,12 @@ func (v *Viewer) Decide(playerPosMS int64, playerPlaying bool, now time.Time) Ac
 	}
 	switch {
 	case abs > v.cfg.SeekThresholdMS:
-		return Action{Play: v.last.Playing, Seek: true, SeekMS: h, Rate: 1.0}
+		return Action{Play: v.last.Playing, Seek: true, SeekMS: h, Rate: 1.0, DriftMS: drift}
 	case abs > v.cfg.DeadbandMS:
 		rate := clamp(1.0-v.cfg.Kp*(float64(drift)/1000.0), v.cfg.MinRate, v.cfg.MaxRate)
-		return Action{Play: v.last.Playing, Rate: rate}
+		return Action{Play: v.last.Playing, Rate: rate, DriftMS: drift}
 	default:
-		return Action{Play: v.last.Playing, Rate: 1.0}
+		return Action{Play: v.last.Playing, Rate: 1.0, DriftMS: drift}
 	}
 }
 
