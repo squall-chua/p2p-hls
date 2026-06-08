@@ -13,8 +13,12 @@ defineProps<{ titles: TitleView[] }>()
 
 const bridge = useBridge()
 const toast = useToast()
-const self = bridge.nodeId
+const self = ref(bridge.nodeId)
 const starting = ref<Set<string>>(new Set())
+
+onMounted(async () => {
+  self.value = (await bridge.resolveSelf()).nodeId
+})
 
 function fmtDuration(ms: number): string {
   if (!ms || ms <= 0) return ''
@@ -29,9 +33,10 @@ function fmtDuration(ms: number): string {
 async function startParty(contentId: string) {
   starting.value = new Set(starting.value).add(contentId)
   try {
+    const sid = self.value || (await bridge.resolveSelf()).nodeId
     await bridge.startParty(contentId)
     toast.add({ title: 'Party started', icon: 'i-lucide-party-popper', color: 'success' })
-    await navigateTo(`/watch/${self}/${contentId}?party=1`)
+    await navigateTo(`/watch/${sid}/${contentId}?party=1`)
   } catch {
     toast.add({ title: 'Could not start party', icon: 'i-lucide-triangle-alert', color: 'error' })
   } finally {

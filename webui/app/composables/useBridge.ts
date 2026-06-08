@@ -1,4 +1,5 @@
 export interface Bootstrap { token: string; nodeId: string; name: string }
+export interface Self { nodeId: string; displayName: string }
 
 // readBootstrap resolves the session token from the injected global (prod) or the
 // URL query (dev). Pure + injectable for tests.
@@ -9,12 +10,25 @@ export function readBootstrap(win: any, search: string): Bootstrap {
   return { token: t, nodeId: '', name: '' }
 }
 
+// resolveIdentity returns this node's identity from the injected bootstrap when
+// it carries a nodeId (prod, same-origin injection), else falls back to
+// fetchSelf (GET /api/self) — the dev (`?token=`) path leaves nodeId empty.
+export function resolveIdentity(
+  boot: Pick<Bootstrap, 'nodeId' | 'name'>,
+  fetchSelf: () => Promise<Self>,
+): Promise<Self> {
+  if (boot.nodeId) return Promise.resolve({ nodeId: boot.nodeId, displayName: boot.name })
+  return fetchSelf()
+}
+
 let cached: Bootstrap | null = null
 function boot(): Bootstrap {
   if (cached) return cached
   cached = readBootstrap(typeof window !== 'undefined' ? window : {}, typeof location !== 'undefined' ? location.search : '')
   return cached
 }
+
+let selfPromise: Promise<Self> | null = null
 
 // useBridge returns the typed REST + SSE client, authenticated with the token.
 export function useBridge() {
@@ -28,7 +42,10 @@ export function useBridge() {
     })
   return {
     token, nodeId, name,
-    self: () => api<{ nodeId: string; displayName: string }>('/api/self'),
+    self: () => api<Self>('/api/self'),
+    // resolveSelf yields this node's identity, falling back to /api/self in dev
+    // (empty bootstrap nodeId) and memoizing so consumers share one fetch.
+    resolveSelf: () => (selfPromise ??= resolveIdentity({ nodeId, name }, () => api<Self>('/api/self'))),
     presence: () => api<any[]>('/api/presence'),
     library: () => api<any[]>('/api/library'),
     catalog: (id: string) => api<any[]>(`/api/peers/${id}/catalog`),
