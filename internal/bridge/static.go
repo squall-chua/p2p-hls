@@ -29,7 +29,10 @@ func (b *Bridge) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	sub, _ := fs.Sub(staticFS, "dist")
 	clean := strings.TrimPrefix(r.URL.Path, "/")
-	if clean != "" {
+	// Serve real asset files as-is, but route "" and "index.html" through the
+	// injection fallback below so both behave identically (the file server would
+	// otherwise 301 /index.html -> ./ and serve it without the bootstrap).
+	if clean != "" && clean != "index.html" {
 		if f, err := sub.Open(clean); err == nil {
 			f.Close()
 			http.FileServer(http.FS(sub)).ServeHTTP(w, r)

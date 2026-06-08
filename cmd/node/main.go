@@ -112,10 +112,13 @@ func main() {
 	}
 	defer br.Close()
 
-	url := br.BaseURL() + "/?token=" + token // dev/manual bootstrap convenience
-	fmt.Println("UI ready:", url)
+	// Open the bare URL: the served page injects window.__P2P__ (carrying the
+	// token) same-origin, so the token stays out of browser history. The
+	// ?token= URL is the dev fallback for `nuxt dev` proxy mode; print it.
+	fmt.Println("UI ready:", br.BaseURL())
+	fmt.Println("Dev URL (nuxt dev):", br.BaseURL()+"/?token="+token)
 	if !*noOpen {
-		_ = openBrowser(url)
+		_ = openBrowser(br.BaseURL())
 	}
 	select {} // serve until interrupted
 }
