@@ -103,6 +103,22 @@ func (pc *partyCoordinator) EndParty(reason string) {
 	}
 }
 
+// close stops the background loops this coordinator owns: the host heartbeat and
+// any active viewer swarm gossip loop. Called from Node.Close at shutdown.
+func (pc *partyCoordinator) close() {
+	pc.mu.Lock()
+	if pc.stopHB != nil {
+		close(pc.stopHB)
+		pc.stopHB = nil
+	}
+	ss := pc.swarm
+	pc.swarm = nil
+	pc.mu.Unlock()
+	if ss != nil {
+		ss.close()
+	}
+}
+
 // LeaveParty tells the current Host this Viewer is leaving, then tears down local
 // viewer + swarm state. No-op if not viewing a party.
 func (pc *partyCoordinator) LeaveParty() {
@@ -339,16 +355,6 @@ func (pc *partyCoordinator) swarmFor(host identity.NodeID, contentID string) *sw
 		return pc.swarm
 	}
 	return nil
-}
-
-// activePartyID returns the viewed party id, or "" if none.
-func (pc *partyCoordinator) activePartyID() string {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	if pc.swarm != nil {
-		return pc.swarm.partyID
-	}
-	return ""
 }
 
 // currentPartyInfo is the node's active watch-party state for the "Now watching"

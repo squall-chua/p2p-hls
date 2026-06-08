@@ -119,7 +119,7 @@ func (n *Node) routeRelays() {
 func shouldDial(self, peer identity.NodeID) bool { return self < peer }
 
 // ensurePeer makes sure a session to node exists, applying glare resolution. If we
-// are the lower NodeID we dial; otherwise we send a SwarmDial nudge so the peer
+// are the lower NodeID we dial; otherwise we send a dial nudge so the peer
 // (the lower NodeID) dials us. Non-blocking for the nudge path.
 func (n *Node) ensurePeer(node identity.NodeID) error {
 	n.mu.Lock()
@@ -136,21 +136,21 @@ func (n *Node) ensurePeer(node identity.NodeID) error {
 		}()
 		return nil
 	}
-	payload, err := peer.EncodeRelay(peer.RelayKindSwarmDial,
-		peer.SwarmDial{PartyID: n.party.activePartyID(), From: string(n.self.NodeID())})
+	payload, err := peer.EncodeRelay(peer.RelayKindSwarmDial, nil)
 	if err != nil {
 		return err
 	}
 	return n.client.SendRelay(node, payload)
 }
 
-// peerSession returns a ready session to a swarm peer, honoring the glare rule.
-// Unlike session (which always dials, correct for the viewer->Host edge), a mesh
-// edge is symmetric: only the lower NodeID dials. If we are the dialer we dial;
-// otherwise we nudge the peer to dial us and report ErrUnavailable so the caller
-// (a periodic, idempotent gossip/pull) skips this round and retries once the
-// answerer session is up. This prevents two simultaneous offers from colliding.
-func (n *Node) peerSession(ctx context.Context, node identity.NodeID) (*peer.Session, error) {
+// peerSession returns a ready session to a swarm peer without ever blocking. A
+// mesh edge is symmetric (only the lower NodeID dials), so when no session is up
+// yet we kick off establishment in the background — ensurePeer dials when we're
+// the dialer, else nudges the peer to dial us — and report ErrUnavailable so the
+// caller (a periodic, idempotent gossip/pull) skips this round and retries once
+// the edge is ready. Never blocking on Dial keeps one unreachable peer from
+// stalling a whole gossip round.
+func (n *Node) peerSession(node identity.NodeID) (*peer.Session, error) {
 	n.mu.Lock()
 	s, ok := n.sessions[node]
 	n.mu.Unlock()
@@ -162,9 +162,6 @@ func (n *Node) peerSession(ctx context.Context, node identity.NodeID) (*peer.Ses
 			return nil, peer.ErrUnavailable
 		}
 	}
-	if shouldDial(n.self.NodeID(), node) {
-		return n.Dial(ctx, node)
-	}
 	if err := n.ensurePeer(node); err != nil {
 		return nil, err
 	}
@@ -173,7 +170,7 @@ func (n *Node) peerSession(ctx context.Context, node identity.NodeID) (*peer.Ses
 
 // sendTo implements sender: sends an Envelope to a remote node.
 func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
-	s, err := n.peerSession(context.Background(), node)
+	s, err := n.peerSession(node)
 	if err != nil {
 		return err
 	}
@@ -182,7 +179,7 @@ func (n *Node) sendTo(node identity.NodeID, env *peerv1.Envelope) error {
 
 // fetchSwarmSegment pulls a Segment from a peer Viewer over its bulk channel.
 func (n *Node) fetchSwarmSegment(ctx context.Context, node identity.NodeID, req *peerv1.GetSwarmSegment) ([]byte, error) {
-	s, err := n.peerSession(ctx, node)
+	s, err := n.peerSession(node)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +207,7 @@ func (n *Node) hostSegment(ctx context.Context, host identity.NodeID, contentID,
 
 // measureRTT implements sender: times a Ping round trip to a remote node.
 func (n *Node) measureRTT(ctx context.Context, node identity.NodeID) (time.Duration, error) {
-	s, err := n.peerSession(ctx, node)
+	s, err := n.peerSession(node)
 	if err != nil {
 		return 0, err
 	}
@@ -479,6 +476,9 @@ func (n *Node) PartyWS() func(*websocket.Conn) { return n.party.serveWS }
 // Close shuts the node down.
 // NOTE(slice-3): relays already buffered in the client channel may drive routeRelays to create a session after Close returns; such a late session isn't tracked/closed here. Benign at process exit.
 func (n *Node) Close() error {
+	if n.party != nil {
+		n.party.close() // stop heartbeat + gossip before tearing down their sessions
+	}
 	n.mu.Lock()
 	for _, s := range n.sessions {
 		_ = s.Close()
