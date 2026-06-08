@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -39,6 +41,25 @@ func TestHubDropsSlowSubscriberWithoutBlocking(t *testing.T) {
 		t.Fatal("publish blocked on a slow subscriber")
 	}
 	h.unsubscribe(s)
+}
+
+func TestHubSubscribeEncodesJSON(t *testing.T) {
+	h := newHub()
+	ch, cancel := h.Subscribe()
+	defer cancel()
+	h.publish(Event{Type: "audience", Data: map[string]any{"count": 2}})
+	select {
+	case s := <-ch:
+		if !strings.Contains(s, `"type":"audience"`) {
+			t.Fatalf("encoded %q", s)
+		}
+		var e Event
+		if json.Unmarshal([]byte(s), &e); e.Type != "audience" {
+			t.Fatalf("roundtrip %q", s)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no encoded event")
+	}
 }
 
 func TestHubUnsubscribeStopsDelivery(t *testing.T) {

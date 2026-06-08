@@ -1,6 +1,9 @@
 package app
 
-import "sync"
+import (
+	"encoding/json"
+	"sync"
+)
 
 // Event is a control-plane notification fanned out to SSE subscribers.
 type Event struct {
@@ -50,4 +53,35 @@ func (h *hub) publish(e Event) {
 		default: // slow subscriber: drop this event for them
 		}
 	}
+}
+
+// Subscribe adapts the hub to bridge.Subscriber: it returns a channel of
+// JSON-encoded events and a cancel func.
+func (h *hub) Subscribe() (<-chan string, func()) {
+	sub := h.subscribe()
+	out := make(chan string, cap(sub.C))
+	done := make(chan struct{})
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-done:
+				return
+			case e, ok := <-sub.C:
+				if !ok {
+					return
+				}
+				b, err := json.Marshal(e)
+				if err != nil {
+					continue
+				}
+				select {
+				case out <- string(b):
+				case <-done:
+					return
+				}
+			}
+		}
+	}()
+	return out, func() { close(done); h.unsubscribe(sub) }
 }
