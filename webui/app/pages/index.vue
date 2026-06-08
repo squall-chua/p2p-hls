@@ -3,6 +3,7 @@ import { useBridge } from '~/composables/useBridge'
 import { useLiveData } from '~/composables/useLiveData'
 
 const bridge = useBridge()
+const me = ref(bridge.name || bridge.nodeId)
 const peers = ref<any[]>([])
 const requests = ref<string[]>([])
 const library = ref<any[]>([])
@@ -15,6 +16,8 @@ async function refetch(kind = 'all') {
 
 let live: { start: () => void; stop: () => void } | null = null
 onMounted(async () => {
+  const s = await bridge.resolveSelf()
+  me.value = s.displayName || s.nodeId
   await refetch('all')
   live = useLiveData((k) => refetch(k))
   live.start()
@@ -29,7 +32,7 @@ onBeforeUnmount(() => live?.stop())
         <UIcon name="i-lucide-radio-tower" class="size-5 text-primary" />
         <h1 class="text-lg font-semibold text-highlighted">P2P HLS</h1>
         <span class="ml-auto truncate text-sm text-muted">
-          {{ bridge.name || bridge.nodeId || 'this node' }}
+          {{ me || 'this node' }}
         </span>
       </div>
     </header>

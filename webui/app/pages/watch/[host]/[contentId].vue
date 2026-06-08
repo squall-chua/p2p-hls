@@ -9,26 +9,29 @@ const bridge = useBridge()
 const toast = useToast()
 const host = route.params.host as string
 const cid = route.params.contentId as string
-const isSelf = host === bridge.nodeId
-const role: Role = !isSelf ? 'viewer' : (route.query.party ? 'host' : 'solo')
+// role depends on whether host is this node; in dev the bootstrap nodeId is
+// empty, so resolve self async in onMounted before deciding the role.
+const role = ref<Role>('solo')
 
 const video = ref<HTMLVideoElement>()
 const drift = ref(0)
 let handle: { close: () => void } | null = null
 let live: { start: () => void; stop: () => void } | null = null
 
-onMounted(() => {
+onMounted(async () => {
+  const isSelf = host === (await bridge.resolveSelf()).nodeId
+  role.value = !isSelf ? 'viewer' : (route.query.party ? 'host' : 'solo')
   handle = attachPlayer({
     video: video.value!,
     src: bridge.streamURL(host, cid),
-    role,
+    role: role.value,
     wsURL: bridge.partyWSURL(),
     onDrift: (d) => (drift.value = d),
   })
-  if (role === 'viewer') {
+  if (role.value === 'viewer') {
     live = useLiveData(() => {}, (type) => {
       if (type === 'party-ended') {
-        useToast().add({ title: 'The host ended the party' })
+        toast.add({ title: 'The host ended the party' })
         navigateTo('/')
       }
     })
@@ -52,11 +55,11 @@ async function end() {
   }
 }
 
-const roleBadge = {
+const roleBadge = computed(() => ({
   host: { label: 'Hosting', color: 'primary', icon: 'i-lucide-radio' },
   viewer: { label: 'Watching', color: 'neutral', icon: 'i-lucide-eye' },
   solo: { label: 'Solo', color: 'neutral', icon: 'i-lucide-play' },
-}[role] as { label: string; color: 'primary' | 'neutral'; icon: string }
+}[role.value] as { label: string; color: 'primary' | 'neutral'; icon: string }))
 </script>
 
 <template>
