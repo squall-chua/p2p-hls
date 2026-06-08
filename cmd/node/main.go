@@ -15,18 +15,26 @@ import (
 
 	"github.com/squall-chua/p2p-hls/internal/app"
 	"github.com/squall-chua/p2p-hls/internal/bridge"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
 )
 
 func main() {
 	name := flag.String("name", "anonymous", "display name")
 	noOpen := flag.Bool("no-open", false, "do not open the browser")
 	bridgeAddr := flag.String("bridge-addr", "127.0.0.1:0", "loopback bridge bind address")
+	configFlag := flag.String("config-dir", "", "base dir for identity, config.toml, library db + cache (default: OS config dir)")
 	flag.Parse()
 
-	configDir, err := app.ConfigDir()
-	if err != nil {
-		fatal(err)
+	configDir := *configFlag
+	if configDir == "" {
+		var err error
+		configDir, err = app.ConfigDir()
+		if err != nil {
+			fatal(err)
+		}
 	}
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		fatal(err)
@@ -50,6 +58,48 @@ func main() {
 		fatal(err)
 	}
 	defer node.Close()
+
+	// Library + catalog + media: make this node serve its own content.
+	dataDir := cfg.DataDir
+	if dataDir == "" {
+		dataDir = configDir
+	}
+	store, err := library.OpenStore(filepath.Join(dataDir, "library.db"))
+	if err != nil {
+		fatal(err)
+	}
+	defer store.Close()
+
+	vis := catalog.VisibilityRestricted
+	if cfg.DefaultVisibility == "public" {
+		vis = catalog.VisibilityPublic
+	}
+	policy := catalog.NewPolicy(vis)
+	for _, a := range cfg.AllowList {
+		policy.AddAllow(identity.NodeID(a))
+	}
+	for _, b := range cfg.BlockList {
+		policy.AddBlock(identity.NodeID(b))
+	}
+	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests())
+	node.SetCatalog(catalogSvc)
+
+	cacheDir := filepath.Join(dataDir, "cache")
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
+		fatal(err)
+	}
+	node.SetMedia(media.NewService(media.NewEngine(store, media.ExecRunner{}, cacheDir), policy))
+
+	// Index shared folders so the Library is populated before the UI loads.
+	if len(cfg.SharedFolders) > 0 {
+		scanCtx, scanCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		if serr := library.NewScanner(store, library.FFProbe{}, cfg.SharedFolders).ScanOnce(scanCtx); serr != nil {
+			slog.Warn("library scan failed", "err", serr)
+		}
+		scanCancel()
+		titles, _ := store.All()
+		fmt.Printf("Library: %d title(s) indexed from %v\n", len(titles), cfg.SharedFolders)
+	}
 
 	token := app.NewToken()
 	br := bridge.New(node, token)
