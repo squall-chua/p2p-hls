@@ -10,6 +10,10 @@ import (
 
 // Compile-time proof that *Node satisfies bridge.Control.
 var _ bridge.Control = (*Node)(nil)
+var _ bridge.Subscriber = (*hub)(nil)
+
+// Events returns the node's event source for the bridge SSE handler.
+func (n *Node) Events() bridge.Subscriber { return n.hub }
 
 func (n *Node) Self() bridge.SelfView {
 	return bridge.SelfView{NodeID: string(n.self.NodeID()), DisplayName: n.displayName}
