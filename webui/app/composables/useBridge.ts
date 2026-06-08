@@ -1,5 +1,6 @@
 export interface Bootstrap { token: string; nodeId: string; name: string }
 export interface Self { nodeId: string; displayName: string }
+export interface CurrentParty { active: boolean; role: string; host: string; contentId: string; title: string; viewers: number }
 
 // readBootstrap resolves the session token from the injected global (prod) or the
 // URL query (dev). Pure + injectable for tests.
@@ -58,6 +59,7 @@ export function useBridge() {
     leaveParty: () => api<void>('/api/party/leave', { method: 'POST' }),
     endParty: () => api<void>('/api/party/end', { method: 'POST' }),
     audience: () => api<any[]>('/api/party/audience'),
+    currentParty: () => api<CurrentParty>('/api/party/current'),
     streamURL: (host: string, contentId: string) => `/s/${token}/${host}/${contentId}/index.m3u8`,
     eventsURL: () => `/api/events?token=${encodeURIComponent(token)}`,
     partyWSURL: () => {

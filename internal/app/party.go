@@ -351,6 +351,33 @@ func (pc *partyCoordinator) activePartyID() string {
 	return ""
 }
 
+// currentPartyInfo is the node's active watch-party state for the "Now watching"
+// dashboard panel. Zero value (active=false) means no party.
+type currentPartyInfo struct {
+	active    bool
+	role      string // "host" | "viewer"
+	host      identity.NodeID
+	contentID string
+	viewers   int
+}
+
+// currentParty reports the active party this node hosts or views, if any.
+func (pc *partyCoordinator) currentParty() currentPartyInfo {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.host != nil {
+		return currentPartyInfo{active: true, role: "host", host: pc.self, contentID: pc.host.ContentID(), viewers: pc.host.ViewerCount()}
+	}
+	if pc.viewer != nil {
+		cid := ""
+		if pc.swarm != nil {
+			cid = pc.swarm.contentID
+		}
+		return currentPartyInfo{active: true, role: "viewer", host: pc.viewerHost, contentID: cid, viewers: len(pc.lastAudience)}
+	}
+	return currentPartyInfo{}
+}
+
 // audienceView returns the current Audience members: the host's live roster when
 // hosting, otherwise the last Audience this viewer received.
 func (pc *partyCoordinator) audienceView() []*peerv1.AudienceMember {

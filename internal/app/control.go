@@ -65,6 +65,39 @@ func (n *Node) Audience() []bridge.PeerView {
 	return out
 }
 
+func (n *Node) CurrentParty() bridge.CurrentPartyView {
+	cp := n.party.currentParty()
+	if !cp.active {
+		return bridge.CurrentPartyView{}
+	}
+	return bridge.CurrentPartyView{
+		Active:    true,
+		Role:      cp.role,
+		Host:      string(cp.host),
+		ContentID: cp.contentID,
+		Title:     n.titleFor(cp.contentID),
+		Viewers:   cp.viewers,
+	}
+}
+
+// titleFor returns the local library display title for contentID, or "" when not
+// found (e.g. a viewer watching a remote host's content this node doesn't hold).
+func (n *Node) titleFor(contentID string) string {
+	if contentID == "" {
+		return ""
+	}
+	lib, err := n.Library()
+	if err != nil {
+		return ""
+	}
+	for _, t := range lib {
+		if t.ContentID == contentID {
+			return t.DisplayTitle
+		}
+	}
+	return ""
+}
+
 func toTitleViews(metas []*peerv1.TitleMeta) []bridge.TitleView {
 	out := make([]bridge.TitleView, 0, len(metas))
 	for _, m := range metas {

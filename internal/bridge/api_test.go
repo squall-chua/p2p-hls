@@ -25,6 +25,7 @@ type fakeControl struct {
 	joined   [2]string
 	left     bool
 	ended    string
+	current  bridge.CurrentPartyView
 }
 
 func (f *fakeControl) Self() bridge.SelfView                { return f.self }
@@ -44,9 +45,10 @@ func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error {
 	f.joined = [2]string{host, cid}
 	return nil
 }
-func (f *fakeControl) LeaveParty()                 { f.left = true }
-func (f *fakeControl) EndParty(reason string)      { f.ended = reason }
-func (f *fakeControl) Audience() []bridge.PeerView { return f.presence }
+func (f *fakeControl) LeaveParty()                           { f.left = true }
+func (f *fakeControl) EndParty(reason string)                { f.ended = reason }
+func (f *fakeControl) Audience() []bridge.PeerView           { return f.presence }
+func (f *fakeControl) CurrentParty() bridge.CurrentPartyView { return f.current }
 
 func newTestBridge(t *testing.T, c bridge.Control) (*bridge.Bridge, string) {
 	t.Helper()
@@ -189,6 +191,22 @@ func TestAPIAudience(t *testing.T) {
 	}
 	if got[0].NodeID != "h" {
 		t.Fatalf("wrong member %+v", got)
+	}
+}
+
+func TestAPICurrentParty(t *testing.T) {
+	c := &fakeControl{current: bridge.CurrentPartyView{
+		Active: true, Role: "host", Host: "n1", ContentID: "movie1", Title: "Movie 1", Viewers: 2,
+	}}
+	_, base := newTestBridge(t, c)
+	resp := apiGET(t, base, "/api/party/current")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	var got bridge.CurrentPartyView
+	json.NewDecoder(resp.Body).Decode(&got)
+	if !got.Active || got.Role != "host" || got.ContentID != "movie1" || got.Viewers != 2 {
+		t.Fatalf("current party %+v", got)
 	}
 }
 

@@ -4,8 +4,8 @@ export function refetchFor(type: string): string[] {
   switch (type) {
     case 'presence': return ['presence']
     case 'request': return ['requests']
-    case 'audience': return ['audience']
-    case 'party-ended': return ['audience']
+    case 'audience': return ['audience', 'now-watching']
+    case 'party-ended': return ['audience', 'now-watching']
     default: return []
   }
 }

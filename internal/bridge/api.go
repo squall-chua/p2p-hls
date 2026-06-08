@@ -27,6 +27,17 @@ type TitleView struct {
 	PartyViewers int    `json:"partyViewers"`
 }
 
+// CurrentPartyView is the node's active watch party for the "Now watching" panel.
+// Active is false when the node is not in a party (other fields zero).
+type CurrentPartyView struct {
+	Active    bool   `json:"active"`
+	Role      string `json:"role"` // "host" | "viewer"
+	Host      string `json:"host"` // host nodeId; powers the /watch/{host}/{contentId} link
+	ContentID string `json:"contentId"`
+	Title     string `json:"title"` // display title when locally known (host side); else ""
+	Viewers   int    `json:"viewers"`
+}
+
 // Control is the set of Node operations the API exposes. Bridge depends on this
 // interface, not on *app.Node, so handlers unit-test against a fake.
 type Control interface {
@@ -42,6 +53,7 @@ type Control interface {
 	LeaveParty()
 	EndParty(reason string)
 	Audience() []PeerView
+	CurrentParty() CurrentPartyView
 }
 
 // SetControl installs the Node adapter that backs the /api/* command handlers.
@@ -155,6 +167,8 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	case path == "party/audience" && r.Method == http.MethodGet:
 		writeJSON(w, c.Audience())
+	case path == "party/current" && r.Method == http.MethodGet:
+		writeJSON(w, c.CurrentParty())
 	case strings.HasPrefix(path, "party/") && r.Method == http.MethodPost:
 		switch strings.TrimPrefix(path, "party/") {
 		case "start":
