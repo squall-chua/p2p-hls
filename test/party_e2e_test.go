@@ -60,7 +60,7 @@ func TestWatchPartySyncEndToEnd(t *testing.T) {
 	host.IngestHostPlayer("play", 60_000)
 
 	// Viewer joins; party_id welcome should arrive and seed initial state.
-	require.NoError(t, viewer.JoinParty(ctx, idHost.NodeID(), cid))
+	require.NoError(t, viewer.JoinParty(ctx, string(idHost.NodeID()), cid))
 
 	// Browse again: the Title is now annotated as a live party with 1 viewer.
 	require.Eventually(t, func() bool {

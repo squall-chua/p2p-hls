@@ -19,6 +19,16 @@ type Client struct {
 	peers     map[string]PeerInfo
 	writeMu   sync.Mutex
 	closeOnce sync.Once
+
+	OnPresenceChange func() // optional; fired (outside the lock) on a presence join/leave
+}
+
+// SetOnPresenceChange installs the presence-change callback. Guarded by c.mu
+// because the read loop is already running and reads the field under the lock.
+func (c *Client) SetOnPresenceChange(fn func()) {
+	c.mu.Lock()
+	c.OnPresenceChange = fn
+	c.mu.Unlock()
 }
 
 // Dial connects, completes challenge/register, and starts the read loop.
@@ -91,11 +101,19 @@ func (c *Client) readLoop() {
 			p := env.(*PresenceJoin).Peer
 			c.mu.Lock()
 			c.peers[p.NodeID] = p
+			cb := c.OnPresenceChange
 			c.mu.Unlock()
+			if cb != nil {
+				cb()
+			}
 		case TypePresenceLeave:
 			c.mu.Lock()
 			delete(c.peers, env.(*PresenceLeave).NodeID)
+			cb := c.OnPresenceChange
 			c.mu.Unlock()
+			if cb != nil {
+				cb()
+			}
 		case TypeRelay:
 			select {
 			case c.relays <- *env.(*Relay):

@@ -56,6 +56,32 @@ func TestCoordinatorJoinDeniedByPolicy(t *testing.T) {
 	require.ErrorIs(t, err, peer.ErrNotFound)
 }
 
+func TestAudienceViewHostSide(t *testing.T) {
+	pc := newPartyCoordinator(nil, "host", party.RealClock(), party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.EndParty("")
+	if _, err := pc.OnJoinParty("viewer1", "cid"); err != nil {
+		t.Fatalf("join: %v", err)
+	}
+	av := pc.audienceView()
+	if len(av) != 1 || av[0].GetNodeId() != "viewer1" {
+		t.Fatalf("audienceView %+v", av)
+	}
+}
+
+func TestOnPartyEndedFiresCallback(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	fired := make(chan struct{}, 1)
+	pc.onPartyEnded = func() { fired <- struct{}{} }
+	pc.OnPartyEnded("host1", &peerv1.PartyEnded{})
+	select {
+	case <-fired:
+	default:
+		t.Fatal("onPartyEnded not fired")
+	}
+}
+
 func TestCoordinatorViewerIngestsState(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("viewer"), party.RealClock(), party.DefaultConfig())
 	pc.beginViewer(identity.NodeID("host"))

@@ -11,7 +11,7 @@ import (
 // fakeClock is a virtual clock for deterministic engine tests.
 type fakeClock struct{ t time.Time }
 
-func newFakeClock() *fakeClock { return &fakeClock{t: time.Unix(1_700_000_000, 0)} }
+func newFakeClock() *fakeClock               { return &fakeClock{t: time.Unix(1_700_000_000, 0)} }
 func (c *fakeClock) Now() time.Time          { return c.t }
 func (c *fakeClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
@@ -117,4 +117,17 @@ func TestViewerConvergesViaNudge(t *testing.T) {
 		drift = -drift
 	}
 	require.LessOrEqual(t, drift, cfg.DeadbandMS, "viewer should converge into the deadband")
+}
+
+func TestDecideReportsDrift(t *testing.T) {
+	clk := newFakeClock()
+	v := party.NewViewer(clk, party.DefaultConfig())
+	now := clk.Now()
+	// host at 10_000ms, playing, seq 1
+	v.OnState(party.State{PartyID: "p", Playing: true, PositionMS: 10_000, Rate: 1, Seq: 1}, now)
+	// viewer reports 10_300ms -> ~+300ms drift (owd 0, no time advanced)
+	act := v.Decide(10_300, true, now)
+	if act.DriftMS == 0 {
+		t.Fatalf("expected non-zero drift, got %+v", act)
+	}
 }

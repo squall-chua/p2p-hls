@@ -3,3 +3,9 @@
 *.out
 /dist/
 node_modules/
+.superpowers/
+webui/node_modules/
+webui/.nuxt/
+webui/.output/
+internal/bridge/dist/*
+!internal/bridge/dist/index.html

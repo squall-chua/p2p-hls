@@ -60,10 +60,11 @@ type State struct {
 // idempotently: if Seek, seek to SeekMS; set playbackRate to Rate; then play or
 // pause to match Play.
 type Action struct {
-	Play   bool
-	Seek   bool
-	SeekMS int64
-	Rate   float64
+	Play    bool    `json:"play"`
+	Seek    bool    `json:"seek"`
+	SeekMS  int64   `json:"seekMs"`
+	Rate    float64 `json:"rate"`
+	DriftMS int64   `json:"driftMs"` // viewer-ahead(+)/behind(-) gap vs the host target
 }
 
 // Member is one entry in the Audience.

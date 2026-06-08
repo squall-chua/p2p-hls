@@ -58,10 +58,10 @@ func NewSession(self *identity.Identity, remote identity.NodeID, cfg webrtc.Conf
 		return nil, fmt.Errorf("new peer connection: %w", err)
 	}
 	s := &Session{
-		self:     self,
-		remote:   remote,
-		signaler: sig,
-		pc:       pc,
+		self:      self,
+		remote:    remote,
+		signaler:  sig,
+		pc:        pc,
 		pending:   make(map[uint64]chan *peerv1.Envelope),
 		ready:     make(chan struct{}),
 		bulkSinks: make(map[uint64]*bulkSink),

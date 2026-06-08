@@ -10,6 +10,8 @@ import (
 type Requests struct {
 	mu      sync.Mutex
 	pending map[identity.NodeID]string
+
+	OnAdd func(node identity.NodeID) // optional; fired (outside the lock) after a new/updated request
 }
 
 // NewRequests creates an empty register.
@@ -20,8 +22,12 @@ func NewRequests() *Requests {
 // Add records (or updates) a pending request from node with an optional message.
 func (r *Requests) Add(node identity.NodeID, message string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.pending[node] = message
+	cb := r.OnAdd
+	r.mu.Unlock()
+	if cb != nil {
+		cb(node)
+	}
 }
 
 // List returns the Node IDs with pending requests.

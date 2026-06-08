@@ -19,17 +19,25 @@ import (
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
+// localMedia is the owner-playback subset of the media service (no access policy).
+type localMedia interface {
+	LocalPlaylist(contentID, name string) ([]byte, string, bool, error)
+	LocalSegment(contentID, name string) ([]byte, error)
+}
+
 // Node is a running app instance: a signaling client plus its peer sessions.
 type Node struct {
-	self   *identity.Identity
-	client *signaling.Client
-	rtcCfg webrtc.Configuration
+	self        *identity.Identity
+	displayName string
+	client      *signaling.Client
+	rtcCfg      webrtc.Configuration
 
 	mu       sync.Mutex
 	sessions map[identity.NodeID]*peer.Session
 	catalog  *catalog.Service
 	media    peer.MediaHandler
 	party    *partyCoordinator
+	hub      *hub
 }
 
 // relaySignaler adapts the signaling client to peer.Signaler.
@@ -60,12 +68,17 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 		rtcCfg.ICEServers = append(rtcCfg.ICEServers, webrtc.ICEServer{URLs: []string{s}})
 	}
 	n := &Node{
-		self:     self,
-		client:   client,
-		rtcCfg:   rtcCfg,
-		sessions: make(map[identity.NodeID]*peer.Session),
+		self:        self,
+		displayName: displayName,
+		client:      client,
+		rtcCfg:      rtcCfg,
+		sessions:    make(map[identity.NodeID]*peer.Session),
 	}
 	n.party = newPartyCoordinator(n, self.NodeID(), party.RealClock(), party.DefaultConfig())
+	n.hub = newHub()
+	n.party.onAudience = func() { n.hub.publish(Event{Type: "audience"}) }
+	n.party.onPartyEnded = func() { n.hub.publish(Event{Type: "party-ended"}) }
+	client.SetOnPresenceChange(func() { n.hub.publish(Event{Type: "presence"}) })
 	go n.routeRelays()
 	return n, nil
 }
@@ -274,6 +287,10 @@ func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session,
 func (n *Node) SetCatalog(svc *catalog.Service) {
 	n.mu.Lock()
 	n.catalog = svc
+	// Set OnAdd before installing handlers below: the SetHandler ordering under
+	// n.mu establishes happens-before with any session goroutine that calls
+	// Requests.Add, so this cross-mutex write is race-free.
+	svc.Requests().OnAdd = func(identity.NodeID) { n.hub.publish(Event{Type: "request"}) }
 	for _, s := range n.sessions {
 		s.SetHandler(svc)
 	}
@@ -294,6 +311,15 @@ func (n *Node) SetMedia(svc peer.MediaHandler) {
 
 // Playlist implements bridge.Streamer.
 func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	if host == n.self.NodeID() {
+		n.mu.Lock()
+		lm, ok := n.media.(localMedia)
+		n.mu.Unlock()
+		if ok {
+			data, ct, _, err := lm.LocalPlaylist(contentID, name)
+			return data, ct, err
+		}
+	}
 	sess, err := n.session(ctx, host)
 	if err != nil {
 		return nil, "", err
@@ -304,6 +330,18 @@ func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, na
 
 // Segment implements bridge.Streamer.
 func (n *Node) Segment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	if host == n.self.NodeID() {
+		n.mu.Lock()
+		lm, ok := n.media.(localMedia)
+		n.mu.Unlock()
+		if ok {
+			data, err := lm.LocalSegment(contentID, name)
+			if err != nil {
+				return nil, "", err
+			}
+			return data, contentTypeFor(name), nil
+		}
+	}
 	if ss := n.party.swarmFor(host, contentID); ss != nil {
 		data, err := ss.FetchSegment(ctx, name)
 		if err != nil {
@@ -343,8 +381,8 @@ func (n *Node) Browse(ctx context.Context, remote identity.NodeID) ([]*peerv1.Ti
 }
 
 // RequestAccess asks the remote Host to allow this Node.
-func (n *Node) RequestAccess(ctx context.Context, remote identity.NodeID, message string) error {
-	sess, err := n.session(ctx, remote)
+func (n *Node) RequestAccess(ctx context.Context, peerID, message string) error {
+	sess, err := n.session(ctx, identity.NodeID(peerID))
 	if err != nil {
 		return err
 	}
@@ -352,14 +390,19 @@ func (n *Node) RequestAccess(ctx context.Context, remote identity.NodeID, messag
 }
 
 // PendingRequests lists Node IDs awaiting our approval.
-func (n *Node) PendingRequests() []identity.NodeID {
+func (n *Node) PendingRequests() []string {
 	n.mu.Lock()
 	svc := n.catalog
 	n.mu.Unlock()
 	if svc == nil {
 		return nil
 	}
-	return svc.Requests().List()
+	ids := svc.Requests().List()
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = string(id)
+	}
+	return out
 }
 
 // ApproveAccess allows remote, then notifies it via AccessGranted.
@@ -393,12 +436,13 @@ func (n *Node) session(ctx context.Context, remote identity.NodeID) (*peer.Sessi
 func (n *Node) StartParty(contentID string) string { return n.party.StartParty(contentID) }
 
 // JoinParty dials host (if needed) and joins the party for contentID.
-func (n *Node) JoinParty(ctx context.Context, host identity.NodeID, contentID string) error {
-	s, err := n.session(ctx, host)
+func (n *Node) JoinParty(ctx context.Context, host, contentID string) error {
+	hostID := identity.NodeID(host)
+	s, err := n.session(ctx, hostID)
 	if err != nil {
 		return err
 	}
-	return n.party.JoinParty(ctx, host, contentID, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
+	return n.party.JoinParty(ctx, hostID, contentID, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
 		return s.JoinParty(ctx, contentID)
 	})
 }

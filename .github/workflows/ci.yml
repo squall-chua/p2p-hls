@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "slice-*"]
+  pull_request:
+
+jobs:
+  go:
+    name: Go (vet, gofmt, race tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.1"
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"; echo "$unformatted"; exit 1
+          fi
+      - name: vet
+        run: go vet ./...
+      - name: test (race)
+        run: go test -race ./...
+
+  webui:
+    name: Web UI (build + vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install
+        run: cd webui && npm ci
+      - name: vitest
+        run: cd webui && npx vitest run
+      - name: build (nuxt generate)
+        run: cd webui && npx nuxt generate
+
+  e2e:
+    name: Playwright smoke (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: build embedded UI bundle
+        run: make webui
+      - name: build binaries
+        run: |
+          go build -o bin/node ./cmd/node
+          go build -o bin/signal-server ./cmd/signal-server
+      - name: playwright
+        run: |
+          cd webui
+          npx playwright install --with-deps chromium
+          npx playwright test

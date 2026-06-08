@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sync"
 	"time"
 
@@ -32,18 +33,21 @@ type swarmTransport interface {
 }
 
 type partyCoordinator struct {
-	send    sender
-	self    identity.NodeID
-	clock   party.Clock
-	cfg     party.Config
-	allowed func(identity.NodeID) bool
+	send         sender
+	self         identity.NodeID
+	clock        party.Clock
+	cfg          party.Config
+	allowed      func(identity.NodeID) bool
+	onAudience   func()
+	onPartyEnded func()
 
-	mu         sync.Mutex
-	host       *party.Host
-	viewer     *party.Viewer
-	viewerHost identity.NodeID
-	swarm      *swarmSession
-	stopHB     chan struct{}
+	mu           sync.Mutex
+	host         *party.Host
+	viewer       *party.Viewer
+	viewerHost   identity.NodeID
+	swarm        *swarmSession
+	lastAudience []*peerv1.AudienceMember
+	stopHB       chan struct{}
 }
 
 func newPartyCoordinator(s sender, self identity.NodeID, clk party.Clock, cfg party.Config) *partyCoordinator {
@@ -96,6 +100,31 @@ func (pc *partyCoordinator) EndParty(reason string) {
 		_ = pc.send.sendTo(m.NodeID, &peerv1.Envelope{
 			Body: &peerv1.Envelope_PartyEnded{PartyEnded: &peerv1.PartyEnded{PartyId: h.PartyID(), Reason: reason}},
 		})
+	}
+}
+
+// LeaveParty tells the current Host this Viewer is leaving, then tears down local
+// viewer + swarm state. No-op if not viewing a party.
+func (pc *partyCoordinator) LeaveParty() {
+	pc.mu.Lock()
+	v, host, ss := pc.viewer, pc.viewerHost, pc.swarm
+	pid := ""
+	if pc.swarm != nil {
+		pid = pc.swarm.partyID
+	}
+	pc.viewer, pc.swarm = nil, nil
+	send := pc.send
+	pc.mu.Unlock()
+	if v == nil {
+		return
+	}
+	if send != nil {
+		_ = send.sendTo(host, &peerv1.Envelope{
+			Body: &peerv1.Envelope_LeaveParty{LeaveParty: &peerv1.LeaveParty{PartyId: pid}},
+		})
+	}
+	if ss != nil {
+		ss.close()
 	}
 }
 
@@ -198,6 +227,7 @@ func (pc *partyCoordinator) OnPartyState(remote identity.NodeID, s *peerv1.Party
 
 func (pc *partyCoordinator) OnPartyAudience(_ identity.NodeID, a *peerv1.PartyAudience) {
 	pc.mu.Lock()
+	pc.lastAudience = a.GetMembers()
 	ss := pc.swarm
 	pc.mu.Unlock()
 	if ss == nil {
@@ -208,6 +238,12 @@ func (pc *partyCoordinator) OnPartyAudience(_ identity.NodeID, a *peerv1.PartyAu
 		members = append(members, identity.NodeID(m.GetNodeId()))
 	}
 	ss.setPeers(members)
+	pc.mu.Lock()
+	cb := pc.onAudience
+	pc.mu.Unlock()
+	if cb != nil {
+		cb()
+	}
 }
 
 func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) {
@@ -218,14 +254,20 @@ func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) 
 func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.PartyEnded) {
 	pc.mu.Lock()
 	var ss *swarmSession
+	ended := false
 	if remote == pc.viewerHost {
 		pc.viewer = nil
 		ss = pc.swarm
 		pc.swarm = nil
+		ended = true
 	}
+	cb := pc.onPartyEnded
 	pc.mu.Unlock()
 	if ss != nil {
 		ss.close()
+	}
+	if ended && cb != nil {
+		cb()
 	}
 }
 
@@ -260,6 +302,12 @@ func (pc *partyCoordinator) broadcastAudience(h *party.Host) {
 	env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyAudience{PartyAudience: a}}
 	for _, m := range h.Members() {
 		_ = pc.send.sendTo(m.NodeID, env)
+	}
+	pc.mu.Lock()
+	cb := pc.onAudience
+	pc.mu.Unlock()
+	if cb != nil {
+		cb()
 	}
 }
 
@@ -300,6 +348,21 @@ func (pc *partyCoordinator) activePartyID() string {
 		return pc.swarm.partyID
 	}
 	return ""
+}
+
+// audienceView returns the current Audience members: the host's live roster when
+// hosting, otherwise the last Audience this viewer received.
+func (pc *partyCoordinator) audienceView() []*peerv1.AudienceMember {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pc.host != nil {
+		out := make([]*peerv1.AudienceMember, 0, len(pc.host.Members()))
+		for _, m := range pc.host.Members() {
+			out = append(out, &peerv1.AudienceMember{NodeId: string(m.NodeID), DisplayName: m.DisplayName})
+		}
+		return out
+	}
+	return slices.Clone(pc.lastAudience)
 }
 
 // viewerDecide is a test seam for the viewer correction (used by the WS loop).

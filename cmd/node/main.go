@@ -1,5 +1,5 @@
-// Command node runs a P2P HLS Node. For Slice 1 it connects to signaling, lists
-// presence, and can dial+ping a peer by Node ID.
+// Command node runs a P2P HLS Node: it connects to signaling and serves the
+// loopback browser UI control plane (REST + SSE) from an embedded SPA.
 package main
 
 import (
@@ -8,21 +8,33 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/squall-chua/p2p-hls/internal/app"
+	"github.com/squall-chua/p2p-hls/internal/bridge"
+	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
+	"github.com/squall-chua/p2p-hls/internal/media"
 )
 
 func main() {
 	name := flag.String("name", "anonymous", "display name")
-	dial := flag.String("dial", "", "node id to dial and ping (optional)")
+	noOpen := flag.Bool("no-open", false, "do not open the browser")
+	bridgeAddr := flag.String("bridge-addr", "127.0.0.1:0", "loopback bridge bind address")
+	configFlag := flag.String("config-dir", "", "base dir for identity, config.toml, library db + cache (default: OS config dir)")
 	flag.Parse()
 
-	configDir, err := app.ConfigDir()
-	if err != nil {
-		fatal(err)
+	configDir := *configFlag
+	if configDir == "" {
+		var err error
+		configDir, err = app.ConfigDir()
+		if err != nil {
+			fatal(err)
+		}
 	}
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		fatal(err)
@@ -47,23 +59,77 @@ func main() {
 	}
 	defer node.Close()
 
-	time.Sleep(500 * time.Millisecond) // let presence settle
-
-	if *dial == "" {
-		fmt.Println("Connected. Online peers will appear as they join. (No --dial target given.)")
-		time.Sleep(10 * time.Second)
-		return
+	// Library + catalog + media: make this node serve its own content.
+	dataDir := cfg.DataDir
+	if dataDir == "" {
+		dataDir = configDir
 	}
-
-	sess, err := node.Dial(ctx, identity.NodeID(*dial))
+	store, err := library.OpenStore(filepath.Join(dataDir, "library.db"))
 	if err != nil {
 		fatal(err)
 	}
-	pong, err := sess.Ping(ctx, "hello")
-	if err != nil {
+	defer store.Close()
+
+	vis := catalog.VisibilityRestricted
+	if cfg.DefaultVisibility == "public" {
+		vis = catalog.VisibilityPublic
+	}
+	policy := catalog.NewPolicy(vis)
+	for _, a := range cfg.AllowList {
+		policy.AddAllow(identity.NodeID(a))
+	}
+	for _, b := range cfg.BlockList {
+		policy.AddBlock(identity.NodeID(b))
+	}
+	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests())
+	node.SetCatalog(catalogSvc)
+
+	cacheDir := filepath.Join(dataDir, "cache")
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		fatal(err)
 	}
-	fmt.Printf("Ping OK, echoed nonce: %q\n", pong)
+	node.SetMedia(media.NewService(media.NewEngine(store, media.ExecRunner{}, cacheDir), policy))
+
+	// Index shared folders so the Library is populated before the UI loads.
+	if len(cfg.SharedFolders) > 0 {
+		scanCtx, scanCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		if serr := library.NewScanner(store, library.FFProbe{}, cfg.SharedFolders).ScanOnce(scanCtx); serr != nil {
+			slog.Warn("library scan failed", "err", serr)
+		}
+		scanCancel()
+		titles, _ := store.All()
+		fmt.Printf("Library: %d title(s) indexed from %v\n", len(titles), cfg.SharedFolders)
+	}
+
+	token := app.NewToken()
+	br := bridge.New(node, token)
+	br.SetControl(node)
+	br.SetEvents(node.Events())
+	br.SetBootstrap(string(id.NodeID()), *name)
+	br.SetPartyHandler(node.PartyWS())
+	if err := br.Start(*bridgeAddr); err != nil {
+		fatal(err)
+	}
+	defer br.Close()
+
+	url := br.BaseURL() + "/?token=" + token // dev/manual bootstrap convenience
+	fmt.Println("UI ready:", url)
+	if !*noOpen {
+		_ = openBrowser(url)
+	}
+	select {} // serve until interrupted
+}
+
+// openBrowser opens url in the default browser (best-effort).
+func openBrowser(url string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url).Start()
+	case "windows":
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	default:
+		return exec.Command("xdg-open", url).Start()
+	}
 }
 
 func fatal(err error) {

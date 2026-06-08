@@ -51,6 +51,26 @@ func (s *Service) Segment(remote identity.NodeID, contentID, name string) ([]byt
 	return data, nil
 }
 
+// LocalPlaylist serves a playlist for the owner's own playback — no access check.
+func (s *Service) LocalPlaylist(contentID, name string) ([]byte, string, bool, error) {
+	data, complete, err := s.engine.File(context.Background(), contentID, name)
+	if err != nil {
+		return nil, "", false, err
+	}
+	s.touch(contentID)
+	return data, contentType(name), complete, nil
+}
+
+// LocalSegment serves a segment for the owner's own playback — no access check.
+func (s *Service) LocalSegment(contentID, name string) ([]byte, error) {
+	data, _, err := s.engine.File(context.Background(), contentID, name)
+	if err != nil {
+		return nil, err
+	}
+	s.touch(contentID)
+	return data, nil
+}
+
 // OpenFile opens the original source file for download (access-checked).
 func (s *Service) OpenFile(remote identity.NodeID, contentID string) (io.ReadCloser, int64, error) {
 	if !s.policy.Allowed(remote) {
