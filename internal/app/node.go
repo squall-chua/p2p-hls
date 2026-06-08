@@ -30,6 +30,7 @@ type Node struct {
 	catalog  *catalog.Service
 	media    peer.MediaHandler
 	party    *partyCoordinator
+	hub      *hub
 }
 
 // relaySignaler adapts the signaling client to peer.Signaler.
@@ -66,6 +67,9 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 		sessions: make(map[identity.NodeID]*peer.Session),
 	}
 	n.party = newPartyCoordinator(n, self.NodeID(), party.RealClock(), party.DefaultConfig())
+	n.hub = newHub()
+	n.party.onAudience = func() { n.hub.publish(Event{Type: "audience"}) }
+	client.SetOnPresenceChange(func() { n.hub.publish(Event{Type: "presence"}) })
 	go n.routeRelays()
 	return n, nil
 }
@@ -274,6 +278,10 @@ func (n *Node) Dial(ctx context.Context, remote identity.NodeID) (*peer.Session,
 func (n *Node) SetCatalog(svc *catalog.Service) {
 	n.mu.Lock()
 	n.catalog = svc
+	// Set OnAdd before installing handlers below: the SetHandler ordering under
+	// n.mu establishes happens-before with any session goroutine that calls
+	// Requests.Add, so this cross-mutex write is race-free.
+	svc.Requests().OnAdd = func(identity.NodeID) { n.hub.publish(Event{Type: "request"}) }
 	for _, s := range n.sessions {
 		s.SetHandler(svc)
 	}

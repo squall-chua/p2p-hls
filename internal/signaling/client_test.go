@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestClientOnPresenceChangeSettable(t *testing.T) {
+	var c signaling.Client
+	c.OnPresenceChange = func() {}
+	if c.OnPresenceChange == nil {
+		t.Fatal("field not wired")
+	}
+}
+
 func clientServerURL(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(signalserver.New().HandleWS))

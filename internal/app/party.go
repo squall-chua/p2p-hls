@@ -32,11 +32,12 @@ type swarmTransport interface {
 }
 
 type partyCoordinator struct {
-	send    sender
-	self    identity.NodeID
-	clock   party.Clock
-	cfg     party.Config
-	allowed func(identity.NodeID) bool
+	send       sender
+	self       identity.NodeID
+	clock      party.Clock
+	cfg        party.Config
+	allowed    func(identity.NodeID) bool
+	onAudience func()
 
 	mu         sync.Mutex
 	host       *party.Host
@@ -208,6 +209,12 @@ func (pc *partyCoordinator) OnPartyAudience(_ identity.NodeID, a *peerv1.PartyAu
 		members = append(members, identity.NodeID(m.GetNodeId()))
 	}
 	ss.setPeers(members)
+	pc.mu.Lock()
+	cb := pc.onAudience
+	pc.mu.Unlock()
+	if cb != nil {
+		cb()
+	}
 }
 
 func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) {
@@ -260,6 +267,12 @@ func (pc *partyCoordinator) broadcastAudience(h *party.Host) {
 	env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyAudience{PartyAudience: a}}
 	for _, m := range h.Members() {
 		_ = pc.send.sendTo(m.NodeID, env)
+	}
+	pc.mu.Lock()
+	cb := pc.onAudience
+	pc.mu.Unlock()
+	if cb != nil {
+		cb()
 	}
 }
 
