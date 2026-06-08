@@ -152,6 +152,34 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+	case strings.HasPrefix(path, "party/") && r.Method == http.MethodPost:
+		switch strings.TrimPrefix(path, "party/") {
+		case "start":
+			var body struct {
+				ContentID string `json:"contentId"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			writeJSON(w, map[string]string{"partyId": c.StartParty(body.ContentID)})
+		case "join":
+			var body struct {
+				HostNodeID string `json:"hostNodeId"`
+				ContentID  string `json:"contentId"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if err := c.JoinParty(r.Context(), body.HostNodeID, body.ContentID); err != nil {
+				http.Error(w, err.Error(), statusForErr(err))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		case "leave":
+			c.LeaveParty()
+			w.WriteHeader(http.StatusOK)
+		case "end":
+			c.EndParty("host ended the party")
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
 	default:
 		http.NotFound(w, r)
 	}

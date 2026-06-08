@@ -27,19 +27,25 @@ type fakeControl struct {
 	ended    string
 }
 
-func (f *fakeControl) Self() bridge.SelfView        { return f.self }
-func (f *fakeControl) Presence() []bridge.PeerView  { return f.presence }
+func (f *fakeControl) Self() bridge.SelfView                { return f.self }
+func (f *fakeControl) Presence() []bridge.PeerView          { return f.presence }
 func (f *fakeControl) Library() ([]bridge.TitleView, error) { return f.library, nil }
 func (f *fakeControl) Catalog(_ context.Context, _ string) ([]bridge.TitleView, error) {
 	return f.catalog, f.catErr
 }
-func (f *fakeControl) RequestAccess(_ context.Context, _ , msg string) error { f.reqMsg = msg; return nil }
-func (f *fakeControl) PendingRequests() []string { return f.pending }
-func (f *fakeControl) Approve(p string) error    { f.approved = append(f.approved, p); return nil }
+func (f *fakeControl) RequestAccess(_ context.Context, _, msg string) error {
+	f.reqMsg = msg
+	return nil
+}
+func (f *fakeControl) PendingRequests() []string    { return f.pending }
+func (f *fakeControl) Approve(p string) error       { f.approved = append(f.approved, p); return nil }
 func (f *fakeControl) StartParty(cid string) string { f.started = cid; return "pid:" + cid }
-func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error { f.joined = [2]string{host, cid}; return nil }
-func (f *fakeControl) LeaveParty()             { f.left = true }
-func (f *fakeControl) EndParty(reason string)  { f.ended = reason }
+func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error {
+	f.joined = [2]string{host, cid}
+	return nil
+}
+func (f *fakeControl) LeaveParty()            { f.left = true }
+func (f *fakeControl) EndParty(reason string) { f.ended = reason }
 
 func newTestBridge(t *testing.T, c bridge.Control) (*bridge.Bridge, string) {
 	t.Helper()
@@ -143,6 +149,32 @@ func TestAPIRequestAccessAndApprove(t *testing.T) {
 	}
 	if len(c.approved) != 1 || c.approved[0] != "n3" {
 		t.Fatalf("approved %+v", c.approved)
+	}
+}
+
+func TestAPIPartyEndpoints(t *testing.T) {
+	c := &fakeControl{}
+	_, base := newTestBridge(t, c)
+
+	resp := apiPOST(t, base, "/api/party/start", `{"contentId":"cidX"}`)
+	var sp struct {
+		PartyID string `json:"partyId"`
+	}
+	json.NewDecoder(resp.Body).Decode(&sp)
+	if sp.PartyID != "pid:cidX" || c.started != "cidX" {
+		t.Fatalf("start %+v / %q", sp, c.started)
+	}
+	if r := apiPOST(t, base, "/api/party/join", `{"hostNodeId":"h1","contentId":"cidY"}`); r.StatusCode != 200 {
+		t.Fatalf("join %d", r.StatusCode)
+	}
+	if c.joined != [2]string{"h1", "cidY"} {
+		t.Fatalf("joined %+v", c.joined)
+	}
+	if r := apiPOST(t, base, "/api/party/leave", ""); r.StatusCode != 200 || !c.left {
+		t.Fatalf("leave %d %v", r.StatusCode, c.left)
+	}
+	if r := apiPOST(t, base, "/api/party/end", ""); r.StatusCode != 200 || c.ended == "" {
+		t.Fatalf("end %d %q", r.StatusCode, c.ended)
 	}
 }
 
