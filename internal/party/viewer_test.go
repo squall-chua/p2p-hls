@@ -11,7 +11,7 @@ import (
 // fakeClock is a virtual clock for deterministic engine tests.
 type fakeClock struct{ t time.Time }
 
-func newFakeClock() *fakeClock { return &fakeClock{t: time.Unix(1_700_000_000, 0)} }
+func newFakeClock() *fakeClock               { return &fakeClock{t: time.Unix(1_700_000_000, 0)} }
 func (c *fakeClock) Now() time.Time          { return c.t }
 func (c *fakeClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 

@@ -19,11 +19,11 @@ func (f *fakePartyHandler) OnJoinParty(_ identity.NodeID, contentID string) (*pe
 	f.joinedCID = contentID
 	return &peerv1.PartyWelcome{PartyId: "p1", Initial: &peerv1.PartyState{PartyId: "p1", PositionMs: 42}}, nil
 }
-func (f *fakePartyHandler) OnLeaveParty(identity.NodeID, string)                       {}
-func (f *fakePartyHandler) OnPartyState(_ identity.NodeID, s *peerv1.PartyState)       { f.states <- s }
-func (f *fakePartyHandler) OnPartyAudience(identity.NodeID, *peerv1.PartyAudience)     {}
-func (f *fakePartyHandler) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite)         {}
-func (f *fakePartyHandler) OnPartyEnded(identity.NodeID, *peerv1.PartyEnded)           {}
+func (f *fakePartyHandler) OnLeaveParty(identity.NodeID, string)                   {}
+func (f *fakePartyHandler) OnPartyState(_ identity.NodeID, s *peerv1.PartyState)   { f.states <- s }
+func (f *fakePartyHandler) OnPartyAudience(identity.NodeID, *peerv1.PartyAudience) {}
+func (f *fakePartyHandler) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite)     {}
+func (f *fakePartyHandler) OnPartyEnded(identity.NodeID, *peerv1.PartyEnded)       {}
 
 func TestPartyStateDeliveredToHandler(t *testing.T) {
 	a, b, _ := connectPair(t) // (viewer, host, hostHandler); b is the host session
