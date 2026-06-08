@@ -77,6 +77,7 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 	n.party = newPartyCoordinator(n, self.NodeID(), party.RealClock(), party.DefaultConfig())
 	n.hub = newHub()
 	n.party.onAudience = func() { n.hub.publish(Event{Type: "audience"}) }
+	n.party.onPartyEnded = func() { n.hub.publish(Event{Type: "party-ended"}) }
 	client.SetOnPresenceChange(func() { n.hub.publish(Event{Type: "presence"}) })
 	go n.routeRelays()
 	return n, nil

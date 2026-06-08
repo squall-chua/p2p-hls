@@ -69,6 +69,19 @@ func TestAudienceViewHostSide(t *testing.T) {
 	}
 }
 
+func TestOnPartyEndedFiresCallback(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	fired := make(chan struct{}, 1)
+	pc.onPartyEnded = func() { fired <- struct{}{} }
+	pc.OnPartyEnded("host1", &peerv1.PartyEnded{})
+	select {
+	case <-fired:
+	default:
+		t.Fatal("onPartyEnded not fired")
+	}
+}
+
 func TestCoordinatorViewerIngestsState(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("viewer"), party.RealClock(), party.DefaultConfig())
 	pc.beginViewer(identity.NodeID("host"))

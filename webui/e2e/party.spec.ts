@@ -16,8 +16,8 @@ test.afterAll(async () => {
 // stack: bridge bootstrap injection, the host's library + StartParty, two nodes
 // discovering each other over the signal-server, a real WebRTC catalog browse
 // from the viewer, and party-live state propagating across the mesh into the
-// viewer's UI as a Join button. The actual viewer->host JoinParty navigation is
-// covered by the fixme below (blocked by a known SPA bug, not a flake).
+// viewer's UI as a Join button. The actual viewer->host JoinParty navigation and
+// sync is covered by the second test below.
 test('host starts a party; viewer browses it cross-node and sees Join', async ({ browser }) => {
   // --- Host: load dashboard, start a party from the library title ---
   // Loading the bridge URL injects window.__P2P__ (token + nodeId), so the

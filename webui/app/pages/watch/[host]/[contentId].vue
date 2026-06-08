@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useBridge } from '~/composables/useBridge'
+import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
 import { formatDrift } from '~/lib/actuator'
 
@@ -14,6 +15,7 @@ const role: Role = !isSelf ? 'viewer' : (route.query.party ? 'host' : 'solo')
 const video = ref<HTMLVideoElement>()
 const drift = ref(0)
 let handle: { close: () => void } | null = null
+let live: { start: () => void; stop: () => void } | null = null
 
 onMounted(() => {
   handle = attachPlayer({
@@ -23,8 +25,20 @@ onMounted(() => {
     wsURL: bridge.partyWSURL(),
     onDrift: (d) => (drift.value = d),
   })
+  if (role === 'viewer') {
+    live = useLiveData(() => {}, (type) => {
+      if (type === 'party-ended') {
+        useToast().add({ title: 'The host ended the party' })
+        navigateTo('/')
+      }
+    })
+    live.start()
+  }
 })
-onBeforeUnmount(() => handle?.close())
+onBeforeUnmount(() => {
+  handle?.close()
+  live?.stop()
+})
 
 async function leave() {
   try { await bridge.leaveParty() } finally { navigateTo('/') }

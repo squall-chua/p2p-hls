@@ -33,12 +33,13 @@ type swarmTransport interface {
 }
 
 type partyCoordinator struct {
-	send       sender
-	self       identity.NodeID
-	clock      party.Clock
-	cfg        party.Config
-	allowed    func(identity.NodeID) bool
-	onAudience func()
+	send         sender
+	self         identity.NodeID
+	clock        party.Clock
+	cfg          party.Config
+	allowed      func(identity.NodeID) bool
+	onAudience   func()
+	onPartyEnded func()
 
 	mu           sync.Mutex
 	host         *party.Host
@@ -253,14 +254,20 @@ func (pc *partyCoordinator) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite) 
 func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.PartyEnded) {
 	pc.mu.Lock()
 	var ss *swarmSession
+	ended := false
 	if remote == pc.viewerHost {
 		pc.viewer = nil
 		ss = pc.swarm
 		pc.swarm = nil
+		ended = true
 	}
+	cb := pc.onPartyEnded
 	pc.mu.Unlock()
 	if ss != nil {
 		ss.close()
+	}
+	if ended && cb != nil {
+		cb()
 	}
 }
 
