@@ -19,6 +19,12 @@ import (
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
 
+// localMedia is the owner-playback subset of the media service (no access policy).
+type localMedia interface {
+	LocalPlaylist(contentID, name string) ([]byte, string, bool, error)
+	LocalSegment(contentID, name string) ([]byte, error)
+}
+
 // Node is a running app instance: a signaling client plus its peer sessions.
 type Node struct {
 	self   *identity.Identity
@@ -302,6 +308,15 @@ func (n *Node) SetMedia(svc peer.MediaHandler) {
 
 // Playlist implements bridge.Streamer.
 func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	if host == n.self.NodeID() {
+		n.mu.Lock()
+		lm, ok := n.media.(localMedia)
+		n.mu.Unlock()
+		if ok {
+			data, ct, _, err := lm.LocalPlaylist(contentID, name)
+			return data, ct, err
+		}
+	}
 	sess, err := n.session(ctx, host)
 	if err != nil {
 		return nil, "", err
@@ -312,6 +327,18 @@ func (n *Node) Playlist(ctx context.Context, host identity.NodeID, contentID, na
 
 // Segment implements bridge.Streamer.
 func (n *Node) Segment(ctx context.Context, host identity.NodeID, contentID, name string) ([]byte, string, error) {
+	if host == n.self.NodeID() {
+		n.mu.Lock()
+		lm, ok := n.media.(localMedia)
+		n.mu.Unlock()
+		if ok {
+			data, err := lm.LocalSegment(contentID, name)
+			if err != nil {
+				return nil, "", err
+			}
+			return data, contentTypeFor(name), nil
+		}
+	}
 	if ss := n.party.swarmFor(host, contentID); ss != nil {
 		data, err := ss.FetchSegment(ctx, name)
 		if err != nil {

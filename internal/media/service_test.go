@@ -38,6 +38,16 @@ func TestServiceAccessGatesStreaming(t *testing.T) {
 	}, 3*time.Second, 20*time.Millisecond)
 }
 
+func TestLocalServeBypassesPolicy(t *testing.T) {
+	eng, cid := newEngineWithTitle(t)
+	// A policy that denies every remote.
+	svc := media.NewService(eng, catalog.NewPolicy(catalog.VisibilityRestricted))
+	// LocalPlaylist must still serve the owner's own static master playlist.
+	data, _, _, err := svc.LocalPlaylist(cid, "playlist.m3u8")
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+}
+
 func TestServiceOpenFileForDownload(t *testing.T) {
 	eng, cid := newEngineWithTitle(t)
 	policy := catalog.NewPolicy(catalog.VisibilityPublic)
