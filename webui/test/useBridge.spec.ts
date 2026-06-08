@@ -64,6 +64,16 @@ describe('useBridge api() body handling', () => {
     await expect(useBridge().startParty('c')).resolves.toEqual({ partyId: 'p1' })
     vi.unstubAllGlobals()
   })
+  it('currentParty fetches GET /api/party/current', async () => {
+    const fetch = vi.fn(async () => new Response(
+      JSON.stringify({ active: true, role: 'host', host: 'n1', contentId: 'm1', title: 'M', viewers: 2 }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    ))
+    vi.stubGlobal('fetch', fetch)
+    await expect(useBridge().currentParty()).resolves.toMatchObject({ active: true, role: 'host', contentId: 'm1' })
+    expect(fetch.mock.calls[0]![0] as string).toBe('/api/party/current')
+    vi.unstubAllGlobals()
+  })
   it('throws an error carrying .status on non-ok', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('denied', { status: 403 })))
     await expect(useBridge().catalog('n')).rejects.toMatchObject({ status: 403 })

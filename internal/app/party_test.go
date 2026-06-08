@@ -107,6 +107,39 @@ func TestOnPartyEndedIgnoresDuplicate(t *testing.T) {
 	require.Equal(t, 1, count, "onPartyEnded must fire exactly once")
 }
 
+func TestCurrentPartyHost(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.StartParty("movie1")
+	pc.OnJoinParty("alice", "movie1")
+	cp := pc.currentParty()
+	require.True(t, cp.active)
+	require.Equal(t, "host", cp.role)
+	require.Equal(t, identity.NodeID("self"), cp.host)
+	require.Equal(t, "movie1", cp.contentID)
+	require.Equal(t, 1, cp.viewers)
+}
+
+func TestCurrentPartyNoneWhenIdle(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	require.False(t, pc.currentParty().active)
+}
+
+func TestCurrentPartyViewer(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	cp := pc.currentParty()
+	require.True(t, cp.active)
+	require.Equal(t, "viewer", cp.role)
+	require.Equal(t, identity.NodeID("host1"), cp.host)
+}
+
+func TestCurrentPartyViewerClearedAfterLeave(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	pc.beginViewer("host1")
+	pc.LeaveParty()
+	require.False(t, pc.currentParty().active)
+}
+
 func TestCoordinatorViewerIngestsState(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("viewer"), party.RealClock(), party.DefaultConfig())
 	pc.beginViewer(identity.NodeID("host"))

@@ -36,6 +36,12 @@ test('host starts a party; viewer browses it cross-node and sees Join', async ({
   // member), so with no viewer joined yet it renders "0 watching".
   await expect(hostPage.getByText(/0 watching/)).toBeVisible()
 
+  // Returning to the dashboard, the "Now watching" panel reflects the live party
+  // (server-side party state survives navigating the browser away from /watch).
+  await hostPage.goto(cluster.hostURL)
+  await expect(hostPage.getByText(/Hosting/)).toBeVisible()
+  await expect(hostPage.getByRole('button', { name: /resume/i })).toBeVisible()
+
   // --- Viewer: load its own bridge (token injected), then open the host's peer page ---
   // We navigate to the peer page only AFTER the party is live: the peer page loads
   // the catalog once on mount, and the Join button is gated on partyLive.
