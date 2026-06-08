@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/squall-chua/p2p-hls/internal/bridge"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 )
 
 // fakeControl implements bridge.Control for handler tests.
@@ -102,6 +104,45 @@ func TestAPIPresenceLibraryRequests(t *testing.T) {
 	json.NewDecoder(apiGET(t, base, "/api/requests").Body).Decode(&reqs)
 	if len(reqs) != 1 || reqs[0] != "n3" {
 		t.Fatalf("requests %+v", reqs)
+	}
+}
+
+func apiPOST(t *testing.T, base, path, body string) *http.Response {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodPost, base+path, strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func TestAPICatalogDeniedIs403(t *testing.T) {
+	c := &fakeControl{catErr: peer.ErrDenied}
+	_, base := newTestBridge(t, c)
+	resp := apiGET(t, base, "/api/peers/n9/catalog")
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestAPIRequestAccessAndApprove(t *testing.T) {
+	c := &fakeControl{}
+	_, base := newTestBridge(t, c)
+
+	if r := apiPOST(t, base, "/api/peers/n9/request-access", `{"message":"please"}`); r.StatusCode != http.StatusAccepted {
+		t.Fatalf("request-access status %d", r.StatusCode)
+	}
+	if c.reqMsg != "please" {
+		t.Fatalf("message not passed: %q", c.reqMsg)
+	}
+	if r := apiPOST(t, base, "/api/requests/n3/approve", ""); r.StatusCode != 200 {
+		t.Fatalf("approve status %d", r.StatusCode)
+	}
+	if len(c.approved) != 1 || c.approved[0] != "n3" {
+		t.Fatalf("approved %+v", c.approved)
 	}
 }
 

@@ -77,6 +77,20 @@ func statusForErr(err error) int {
 	}
 }
 
+// splitPeerPath returns the path segment after prefix, and the trailing action (or "").
+// e.g. peers/n9/catalog -> ("n9", "catalog").
+func splitPeerPath(path, prefix string) (id, action string, ok bool) {
+	rest := strings.TrimPrefix(path, prefix)
+	if rest == path {
+		return "", "", false
+	}
+	parts := strings.SplitN(rest, "/", 2)
+	if len(parts) == 1 {
+		return parts[0], "", true
+	}
+	return parts[0], parts[1], true
+}
+
 func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 	if !b.apiAuthOK(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -104,6 +118,40 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, lib)
 	case path == "requests" && r.Method == http.MethodGet:
 		writeJSON(w, c.PendingRequests())
+	case strings.HasPrefix(path, "peers/"):
+		id, action, _ := splitPeerPath(path, "peers/")
+		switch {
+		case action == "catalog" && r.Method == http.MethodGet:
+			cat, err := c.Catalog(r.Context(), id)
+			if err != nil {
+				http.Error(w, err.Error(), statusForErr(err))
+				return
+			}
+			writeJSON(w, cat)
+		case action == "request-access" && r.Method == http.MethodPost:
+			var body struct {
+				Message string `json:"message"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if err := c.RequestAccess(r.Context(), id, body.Message); err != nil {
+				http.Error(w, err.Error(), statusForErr(err))
+				return
+			}
+			w.WriteHeader(http.StatusAccepted)
+		default:
+			http.NotFound(w, r)
+		}
+	case strings.HasPrefix(path, "requests/") && r.Method == http.MethodPost:
+		id, action, _ := splitPeerPath(path, "requests/")
+		if action != "approve" {
+			http.NotFound(w, r)
+			return
+		}
+		if err := c.Approve(id); err != nil {
+			http.Error(w, err.Error(), statusForErr(err))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	default:
 		http.NotFound(w, r)
 	}
