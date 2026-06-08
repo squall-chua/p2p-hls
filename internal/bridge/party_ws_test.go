@@ -25,7 +25,7 @@ func TestPartyWSUpgradesAndEchoes(t *testing.T) {
 	defer b.Close()
 
 	url := "ws" + strings.TrimPrefix(b.BaseURL(), "http") + "/party/secret-token"
-	c, resp, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {"http://127.0.0.1"}})
+	c, resp, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {b.BaseURL()}})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 	defer c.Close()
@@ -43,7 +43,7 @@ func TestPartyWSRejectsBadToken(t *testing.T) {
 	require.NoError(t, b.Start("127.0.0.1:0"))
 	defer b.Close()
 	url := "ws" + strings.TrimPrefix(b.BaseURL(), "http") + "/party/wrong"
-	_, resp, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {"http://127.0.0.1"}})
+	_, resp, err := websocket.DefaultDialer.Dial(url, http.Header{"Origin": {b.BaseURL()}})
 	require.Error(t, err)
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }

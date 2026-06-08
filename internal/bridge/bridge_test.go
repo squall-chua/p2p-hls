@@ -60,3 +60,28 @@ func TestBridgeRefusesNonLoopbackBind(t *testing.T) {
 	b := bridge.New(fakeStreamer{}, "tok")
 	require.Error(t, b.Start("0.0.0.0:0"), "must refuse to bind a non-loopback address")
 }
+
+func TestOriginAllowed(t *testing.T) {
+	cases := []struct {
+		name   string
+		origin string
+		port   string
+		want   bool
+	}{
+		{"empty origin (same-origin fetch)", "", "8080", true},
+		{"127.0.0.1 matching port", "http://127.0.0.1:8080", "8080", true},
+		{"localhost matching port", "http://localhost:8080", "8080", true},
+		{"ipv6 loopback matching port", "http://[::1]:8080", "8080", true},
+		{"127.0.0.1 wrong port", "http://127.0.0.1:9999", "8080", false},
+		{"prefix-spoof host rejected", "http://127.0.0.1.evil.com:8080", "8080", false},
+		{"localhost-spoof host rejected", "http://localhost.evil.com:8080", "8080", false},
+		{"userinfo-spoof host rejected", "http://127.0.0.1@evil.com:8080", "8080", false},
+		{"non-loopback host rejected", "http://example.com:8080", "8080", false},
+		{"garbage origin rejected", "://not a url", "8080", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			require.Equal(t, c.want, bridge.OriginAllowedForTest(c.origin, c.port))
+		})
+	}
+}

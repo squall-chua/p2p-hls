@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -122,9 +123,24 @@ func (b *Bridge) handleStream(w http.ResponseWriter, r *http.Request) {
 
 // originOK allows same-origin/no-origin requests (the embedded UI is same-origin).
 func (b *Bridge) originOK(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		return true // hls.js segment/playlist fetches are typically same-origin (no Origin header)
+	port := ""
+	if b.ln != nil {
+		_, port, _ = net.SplitHostPort(b.ln.Addr().String())
 	}
-	return strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://localhost")
+	return originAllowed(r.Header.Get("Origin"), port)
+}
+
+// originAllowed reports whether origin is an exact loopback origin bound to port.
+// An empty origin is allowed (hls.js segment/playlist fetches are same-origin and
+// send no Origin header). Host is matched exactly against the loopback set so a
+// spoof like http://127.0.0.1.evil.com is rejected.
+func originAllowed(origin, port string) bool {
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || !isLoopbackHost(u.Hostname()) {
+		return false
+	}
+	return port == "" || u.Port() == port
 }
