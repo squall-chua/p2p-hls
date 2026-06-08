@@ -1,4 +1,6 @@
 /bin/
+/node
+/signal-server
 *.test
 *.out
 /dist/
