@@ -57,22 +57,23 @@ test('host starts a party; viewer browses it cross-node and sees Join', async ({
     .toBeVisible({ timeout: 30_000 })
 })
 
-// Full viewer->host join + sync. Reached the Join click reliably, but the SPA's
-// bridge client (webui/app/composables/useBridge.ts) calls `await r.json()` for
-// any non-204 response, while the bridge's /api/party/join handler returns a
-// bodiless HTTP 200 (internal/bridge/api.go). The empty body makes r.json()
-// throw, so joinParty() rejects, navigateTo(/watch/...) is skipped, and a "Could
-// not join party" toast fires instead. This is a deterministic product bug, not
-// flakiness — fixing it (204 from the bridge, or treating empty 200 as bodiless)
-// is out of scope for this smoke. Verified end-to-end at the Go layer by
-// test/party_e2e_test.go (TestWatchPartySyncEndToEnd), so the P2P path is sound.
-test.fixme('viewer joins the party and syncs (blocked: bodiless-200 join bug)', async ({ browser }) => {
+// Full viewer->host join + sync. The bridge's bodiless HTTP 200/202 responses
+// (e.g. /api/party/join in internal/bridge/api.go) are now handled by the SPA
+// client (webui/app/composables/useBridge.ts reads the body as text and only
+// JSON.parses when non-empty), so joinParty() resolves and the viewer navigates
+// to the watch page. This drives the full cross-node sync: host starts a party,
+// the viewer browses it over WebRTC, joins, reaches /watch/ as a viewer (Synced),
+// and the host's AudienceStrip reflects the one remote viewer ("1 watching").
+test('viewer joins the party and syncs cross-node', async ({ browser }) => {
   const viewerBase = new URL(cluster.viewerURL).origin
   const hostCtx = await browser.newContext()
   const hostPage = await hostCtx.newPage()
   await hostPage.goto(cluster.hostURL)
   await hostPage.getByRole('button', { name: /start party/i }).first().click()
+  // startParty -> navigateTo(/watch/{hostId}/{cid}?party=1): host role, AudienceStrip.
   await expect(hostPage).toHaveURL(/\/watch\//)
+  // No viewer has joined yet: the host is never its own audience member.
+  await expect(hostPage.getByText(/0 watching/)).toBeVisible()
 
   const viewerCtx = await browser.newContext()
   const viewerPage = await viewerCtx.newPage()
@@ -81,9 +82,9 @@ test.fixme('viewer joins the party and syncs (blocked: bodiless-200 join bug)', 
   await viewerPage.goto(`${viewerBase}/peer/${cluster.hostNodeId}`)
   await viewerPage.getByRole('button', { name: /join/i }).first().click({ timeout: 30_000 })
 
-  // joinParty -> navigateTo(/watch/{hostId}/{cid}): viewer role; "Synced · ±0.0s".
-  await expect(viewerPage).toHaveURL(/\/watch\//)
+  // joinParty now resolves -> navigateTo(/watch/{hostId}/{cid}): viewer role; "Synced".
+  await expect(viewerPage).toHaveURL(/\/watch\//, { timeout: 30_000 })
   await expect(viewerPage.getByText(/Synced/)).toBeVisible({ timeout: 30_000 })
-  // 1 host + 1 viewer => the host's AudienceStrip shows "1 watching".
+  // 1 remote viewer joined => the host's AudienceStrip shows "1 watching".
   await expect(hostPage.getByText(/1 watching/)).toBeVisible({ timeout: 30_000 })
 })

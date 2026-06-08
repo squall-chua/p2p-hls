@@ -23,7 +23,8 @@ export function useBridge() {
   const api = <T>(path: string, init?: RequestInit) =>
     fetch(path, { ...init, headers: { ...headers, ...(init?.headers || {}) } }).then(async (r) => {
       if (!r.ok) throw Object.assign(new Error(`api ${path} ${r.status}`), { status: r.status })
-      return (r.status === 204 ? undefined : await r.json()) as T
+      const text = await r.text()
+      return (text ? JSON.parse(text) : undefined) as T
     })
   return {
     token, nodeId, name,
