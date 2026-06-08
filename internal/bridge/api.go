@@ -41,6 +41,7 @@ type Control interface {
 	JoinParty(ctx context.Context, host, contentID string) error
 	LeaveParty()
 	EndParty(reason string)
+	Audience() []PeerView
 }
 
 // SetControl installs the Node adapter that backs the /api/* command handlers.
@@ -152,6 +153,8 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+	case path == "party/audience" && r.Method == http.MethodGet:
+		writeJSON(w, c.Audience())
 	case strings.HasPrefix(path, "party/") && r.Method == http.MethodPost:
 		switch strings.TrimPrefix(path, "party/") {
 		case "start":

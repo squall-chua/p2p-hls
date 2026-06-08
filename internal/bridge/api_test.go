@@ -44,8 +44,9 @@ func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error {
 	f.joined = [2]string{host, cid}
 	return nil
 }
-func (f *fakeControl) LeaveParty()            { f.left = true }
-func (f *fakeControl) EndParty(reason string) { f.ended = reason }
+func (f *fakeControl) LeaveParty()                 { f.left = true }
+func (f *fakeControl) EndParty(reason string)      { f.ended = reason }
+func (f *fakeControl) Audience() []bridge.PeerView { return f.presence }
 
 func newTestBridge(t *testing.T, c bridge.Control) (*bridge.Bridge, string) {
 	t.Helper()
@@ -175,6 +176,19 @@ func TestAPIPartyEndpoints(t *testing.T) {
 	}
 	if r := apiPOST(t, base, "/api/party/end", ""); r.StatusCode != 200 || c.ended == "" {
 		t.Fatalf("end %d %q", r.StatusCode, c.ended)
+	}
+}
+
+func TestAPIAudience(t *testing.T) {
+	c := &fakeControl{presence: []bridge.PeerView{{NodeID: "h", DisplayName: "Host"}}}
+	_, base := newTestBridge(t, c)
+	var got []bridge.PeerView
+	json.NewDecoder(apiGET(t, base, "/api/party/audience").Body).Decode(&got)
+	if len(got) != 1 {
+		t.Fatalf("audience %+v", got)
+	}
+	if got[0].NodeID != "h" {
+		t.Fatalf("wrong member %+v", got)
 	}
 }
 

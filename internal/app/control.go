@@ -56,6 +56,15 @@ func (n *Node) LeaveParty() { n.party.LeaveParty() }
 
 func (n *Node) EndParty(reason string) { n.party.EndParty(reason) }
 
+func (n *Node) Audience() []bridge.PeerView {
+	members := n.party.audienceView()
+	out := make([]bridge.PeerView, 0, len(members))
+	for _, m := range members {
+		out = append(out, bridge.PeerView{NodeID: m.GetNodeId(), DisplayName: m.GetDisplayName(), Online: true})
+	}
+	return out
+}
+
 func toTitleViews(metas []*peerv1.TitleMeta) []bridge.TitleView {
 	out := make([]bridge.TitleView, 0, len(metas))
 	for _, m := range metas {
