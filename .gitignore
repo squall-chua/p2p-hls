@@ -4,3 +4,7 @@
 /dist/
 node_modules/
 .superpowers/
+webui/node_modules/
+webui/.nuxt/
+webui/.output/
+internal/bridge/dist/assets/
