@@ -112,7 +112,7 @@ func (pc *partyCoordinator) LeaveParty() {
 	if pc.swarm != nil {
 		pid = pc.swarm.partyID
 	}
-	pc.viewer, pc.swarm = nil, nil
+	pc.viewer, pc.swarm, pc.viewerHost = nil, nil, ""
 	send := pc.send
 	pc.mu.Unlock()
 	if v == nil {
@@ -259,6 +259,7 @@ func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.Party
 		pc.viewer = nil
 		ss = pc.swarm
 		pc.swarm = nil
+		pc.viewerHost = ""
 		ended = true
 	}
 	cb := pc.onPartyEnded
