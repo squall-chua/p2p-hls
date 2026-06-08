@@ -46,6 +46,19 @@ func (s *Service) Browse(remote identity.NodeID) ([]*peerv1.TitleMeta, error) {
 	return out, nil
 }
 
+// Library returns every Title in the owner's Library, annotated (no access filter).
+func (s *Service) Library() ([]*peerv1.TitleMeta, error) {
+	titles, err := s.store.All()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*peerv1.TitleMeta, 0, len(titles))
+	for _, t := range titles {
+		out = append(out, s.toMeta(t))
+	}
+	return out, nil
+}
+
 // GetMetadata returns one Title's metadata, or peer.ErrDenied/peer.ErrNotFound.
 func (s *Service) GetMetadata(remote identity.NodeID, contentID string) (*peerv1.TitleMeta, error) {
 	if !s.policy.Allowed(remote) {

@@ -63,7 +63,7 @@ func TestBrowseAfterApprovalEndToEnd(t *testing.T) {
 	_, err = viewer.Browse(ctx, idHost.NodeID())
 	require.ErrorIs(t, err, peer.ErrDenied)
 
-	require.NoError(t, viewer.RequestAccess(ctx, idHost.NodeID(), "hi"))
+	require.NoError(t, viewer.RequestAccess(ctx, string(idHost.NodeID()), "hi"))
 	require.Eventually(t, func() bool { return len(host.PendingRequests()) == 1 }, 3*time.Second, 25*time.Millisecond)
 	require.NoError(t, host.ApproveAccess(idViewer.NodeID()))
 

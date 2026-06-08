@@ -174,7 +174,7 @@ func TestSwarmRelaysAndOffloadsHost(t *testing.T) {
 	require.NoError(t, err)
 	defer viewerA.Close()
 	require.Eventually(t, func() bool { return viewerA.Sees(hostID) }, 5*time.Second, 25*time.Millisecond)
-	require.NoError(t, viewerA.JoinParty(ctx, hostID, cid))
+	require.NoError(t, viewerA.JoinParty(ctx, string(hostID), cid))
 
 	brA := bridge.New(viewerA, "tok")
 	require.NoError(t, brA.Start("127.0.0.1:0"))
@@ -198,7 +198,7 @@ func TestSwarmRelaysAndOffloadsHost(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return viewerB.Sees(hostID) && viewerB.Sees(idA.NodeID())
 	}, 5*time.Second, 25*time.Millisecond)
-	require.NoError(t, viewerB.JoinParty(ctx, hostID, cid))
+	require.NoError(t, viewerB.JoinParty(ctx, string(hostID), cid))
 
 	// Let the swarm connect A<->B and propagate A's have-map to B. Gossip ticks at
 	// 1s; give several rounds plus WebRTC setup time. This is the determinism knob:

@@ -100,6 +100,31 @@ func (pc *partyCoordinator) EndParty(reason string) {
 	}
 }
 
+// LeaveParty tells the current Host this Viewer is leaving, then tears down local
+// viewer + swarm state. No-op if not viewing a party.
+func (pc *partyCoordinator) LeaveParty() {
+	pc.mu.Lock()
+	v, host, ss := pc.viewer, pc.viewerHost, pc.swarm
+	pid := ""
+	if pc.swarm != nil {
+		pid = pc.swarm.partyID
+	}
+	pc.viewer, pc.swarm = nil, nil
+	send := pc.send
+	pc.mu.Unlock()
+	if v == nil {
+		return
+	}
+	if send != nil {
+		_ = send.sendTo(host, &peerv1.Envelope{
+			Body: &peerv1.Envelope_LeaveParty{LeaveParty: &peerv1.LeaveParty{PartyId: pid}},
+		})
+	}
+	if ss != nil {
+		ss.close()
+	}
+}
+
 func (pc *partyCoordinator) beginViewer(host identity.NodeID) {
 	pc.mu.Lock()
 	pc.viewer = party.NewViewer(pc.clock, pc.cfg)

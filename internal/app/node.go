@@ -27,9 +27,10 @@ type localMedia interface {
 
 // Node is a running app instance: a signaling client plus its peer sessions.
 type Node struct {
-	self   *identity.Identity
-	client *signaling.Client
-	rtcCfg webrtc.Configuration
+	self        *identity.Identity
+	displayName string
+	client      *signaling.Client
+	rtcCfg      webrtc.Configuration
 
 	mu       sync.Mutex
 	sessions map[identity.NodeID]*peer.Session
@@ -67,10 +68,11 @@ func NewNode(ctx context.Context, self *identity.Identity, displayName string, c
 		rtcCfg.ICEServers = append(rtcCfg.ICEServers, webrtc.ICEServer{URLs: []string{s}})
 	}
 	n := &Node{
-		self:     self,
-		client:   client,
-		rtcCfg:   rtcCfg,
-		sessions: make(map[identity.NodeID]*peer.Session),
+		self:        self,
+		displayName: displayName,
+		client:      client,
+		rtcCfg:      rtcCfg,
+		sessions:    make(map[identity.NodeID]*peer.Session),
 	}
 	n.party = newPartyCoordinator(n, self.NodeID(), party.RealClock(), party.DefaultConfig())
 	n.hub = newHub()
@@ -378,8 +380,8 @@ func (n *Node) Browse(ctx context.Context, remote identity.NodeID) ([]*peerv1.Ti
 }
 
 // RequestAccess asks the remote Host to allow this Node.
-func (n *Node) RequestAccess(ctx context.Context, remote identity.NodeID, message string) error {
-	sess, err := n.session(ctx, remote)
+func (n *Node) RequestAccess(ctx context.Context, peerID, message string) error {
+	sess, err := n.session(ctx, identity.NodeID(peerID))
 	if err != nil {
 		return err
 	}
@@ -387,14 +389,19 @@ func (n *Node) RequestAccess(ctx context.Context, remote identity.NodeID, messag
 }
 
 // PendingRequests lists Node IDs awaiting our approval.
-func (n *Node) PendingRequests() []identity.NodeID {
+func (n *Node) PendingRequests() []string {
 	n.mu.Lock()
 	svc := n.catalog
 	n.mu.Unlock()
 	if svc == nil {
 		return nil
 	}
-	return svc.Requests().List()
+	ids := svc.Requests().List()
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = string(id)
+	}
+	return out
 }
 
 // ApproveAccess allows remote, then notifies it via AccessGranted.
@@ -428,12 +435,13 @@ func (n *Node) session(ctx context.Context, remote identity.NodeID) (*peer.Sessi
 func (n *Node) StartParty(contentID string) string { return n.party.StartParty(contentID) }
 
 // JoinParty dials host (if needed) and joins the party for contentID.
-func (n *Node) JoinParty(ctx context.Context, host identity.NodeID, contentID string) error {
-	s, err := n.session(ctx, host)
+func (n *Node) JoinParty(ctx context.Context, host, contentID string) error {
+	hostID := identity.NodeID(host)
+	s, err := n.session(ctx, hostID)
 	if err != nil {
 		return err
 	}
-	return n.party.JoinParty(ctx, host, contentID, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
+	return n.party.JoinParty(ctx, hostID, contentID, func(ctx context.Context) (*peerv1.PartyWelcome, error) {
 		return s.JoinParty(ctx, contentID)
 	})
 }
