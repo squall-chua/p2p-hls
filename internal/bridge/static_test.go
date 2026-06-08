@@ -74,9 +74,15 @@ func TestBootstrapEscapesScriptBreakout(t *testing.T) {
 	resp, _ := http.Get(b.BaseURL() + "/")
 	body, _ := io.ReadAll(resp.Body)
 	s := string(body)
-	// Only the one real closing tag of our injected <script> may appear;
-	// the name's </script> must be escaped to </script>.
-	if strings.Count(s, "</script>") != 1 {
+	// The injected name must be escaped and never break out of the bootstrap
+	// <script>. json.Marshal HTML-escapes < and > to their unicode forms, so
+	// the raw breakout payload must not appear literally while its escaped form
+	// must. Both assertions hold regardless of how many real <script> tags the
+	// bundle itself ships.
+	if strings.Contains(s, "<script>alert(1)") {
 		t.Fatalf("script breakout not escaped: %s", s)
+	}
+	if !strings.Contains(s, `\u003cscript\u003ealert(1)`) {
+		t.Fatalf("expected escaped payload, got: %s", s)
 	}
 }
