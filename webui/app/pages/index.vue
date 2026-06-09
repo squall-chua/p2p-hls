@@ -4,13 +4,11 @@ import { useLiveData } from '~/composables/useLiveData'
 
 const bridge = useBridge()
 const me = ref(bridge.name || bridge.nodeId)
-const peers = ref<any[]>([])
 const requests = ref<string[]>([])
 const library = ref<any[]>([])
 const watching = ref<CurrentParty | null>(null)
 
 async function refetch(kind = 'all') {
-  if (kind === 'all' || kind === 'presence') peers.value = await bridge.presence()
   if (kind === 'all' || kind === 'requests') requests.value = await bridge.requests()
   if (kind === 'all') library.value = await bridge.library()
   if (kind === 'all' || kind === 'now-watching') watching.value = await bridge.currentParty()
@@ -34,86 +32,92 @@ onBeforeUnmount(() => live?.stop())
 </script>
 
 <template>
-  <div class="min-h-screen bg-default">
-    <header class="border-b border-default px-6 py-4">
-      <div class="flex items-center gap-3">
-        <UIcon name="i-lucide-radio-tower" class="size-5 text-primary" />
-        <h1 class="text-lg font-semibold text-highlighted">P2P HLS</h1>
-        <span class="ml-auto truncate text-sm text-muted">
-          {{ me || 'this node' }}
-        </span>
+  <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <!-- page header -->
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-highlighted sm:text-2xl">
+          Your library
+        </h1>
+        <p class="mt-1 text-sm text-muted">Host a watch party, or play something solo.</p>
       </div>
-    </header>
+      <span
+        class="hidden items-center gap-2 rounded-full border border-default bg-elevated px-3 py-1.5 text-xs text-muted sm:inline-flex"
+      >
+        <UIcon name="i-lucide-fingerprint" class="size-3.5 text-primary" />
+        <span class="max-w-[16rem] truncate font-mono">{{ me || 'this node' }}</span>
+      </span>
+    </div>
 
-    <main class="grid grid-cols-1 gap-4 p-6 lg:grid-cols-2">
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-users" class="size-4 text-muted" />
-            <span class="font-semibold text-highlighted">Online peers</span>
+    <!-- now watching -->
+    <section v-if="watching?.active" class="mb-8">
+      <div class="relative overflow-hidden rounded-2xl border border-default bg-elevated p-5 sm:p-6">
+        <div class="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-primary/20 blur-3xl" />
+        <div class="relative flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div
+            class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/20"
+          >
+            <UIcon
+              :name="watching.role === 'host' ? 'i-lucide-radio' : 'i-lucide-monitor-play'"
+              class="size-7"
+            />
           </div>
-        </template>
-        <PeerList :peers="peers" />
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-inbox" class="size-4 text-muted" />
-            <span class="font-semibold text-highlighted">Requests</span>
-          </div>
-        </template>
-        <RequestList :requests="requests" @approved="refetch('requests')" />
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-library" class="size-4 text-muted" />
-            <span class="font-semibold text-highlighted">Your Library</span>
-          </div>
-        </template>
-        <LibraryPanel :titles="library" />
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-tv" class="size-4 text-muted" />
-            <span class="font-semibold text-highlighted">Now watching</span>
-          </div>
-        </template>
-        <div
-          v-if="watching?.active"
-          class="flex items-center justify-between gap-3 rounded-md bg-elevated/50 px-3 py-2"
-        >
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="truncate font-medium text-highlighted">
-                {{ watching.title || watching.contentId }}
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-primary">
+                Continue
               </span>
               <UBadge
-                :color="watching.role === 'host' ? 'primary' : 'neutral'"
-                variant="subtle"
+                :color="watching.role === 'host' ? 'error' : 'primary'"
+                variant="soft"
                 size="sm"
               >
+                <span
+                  class="live-dot mr-1.5 inline-block size-1.5 rounded-full"
+                  :class="watching.role === 'host' ? 'bg-error' : 'bg-primary'"
+                />
                 {{ watching.role === 'host' ? 'Hosting' : 'Watching' }} · {{ watching.viewers }}
               </UBadge>
             </div>
-            <span class="truncate font-mono text-xs text-dimmed">{{ watching.host }}</span>
+            <p class="mt-1.5 truncate text-lg font-semibold text-highlighted">
+              {{ watching.title || watching.contentId }}
+            </p>
+            <p class="truncate font-mono text-xs text-dimmed">{{ watching.host }}</p>
           </div>
           <UButton
-            :to="watchingLink"
             label="Resume"
             icon="i-lucide-play"
             color="primary"
-            variant="soft"
-            size="sm"
-            class="shrink-0"
+            size="lg"
+            class="glow-primary shrink-0 justify-center"
+            @click="navigateTo(watchingLink)"
           />
         </div>
-        <p v-else class="text-sm text-muted">Nothing yet</p>
-      </UCard>
-    </main>
+      </div>
+    </section>
+
+    <!-- access requests -->
+    <section v-if="requests.length" class="mb-8">
+      <div class="mb-3 flex items-center gap-2">
+        <UIcon name="i-lucide-inbox" class="size-4 text-warning" />
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-dimmed">
+          Access requests
+        </h2>
+        <UBadge color="warning" variant="soft" size="sm">{{ requests.length }}</UBadge>
+      </div>
+      <RequestList :requests="requests" @approved="refetch('requests')" />
+    </section>
+
+    <!-- library -->
+    <section>
+      <div class="mb-3 flex items-center gap-2">
+        <UIcon name="i-lucide-library" class="size-4 text-primary" />
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-dimmed">Library</h2>
+        <UBadge v-if="library.length" color="neutral" variant="soft" size="sm">
+          {{ library.length }}
+        </UBadge>
+      </div>
+      <LibraryPanel :titles="library" />
+    </section>
   </div>
 </template>

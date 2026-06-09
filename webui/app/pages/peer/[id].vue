@@ -62,34 +62,61 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="min-h-screen bg-default">
-    <header class="border-b border-default px-6 py-4">
-      <div class="flex items-center gap-3">
-        <UButton
-          to="/"
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          aria-label="Back to dashboard"
-        />
-        <UIcon name="i-lucide-folder-open" class="size-5 text-primary" />
-        <h1 class="truncate text-lg font-semibold text-highlighted">Peer Library</h1>
-        <span class="ml-auto truncate font-mono text-xs text-muted">{{ id }}</span>
+  <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+    <!-- header -->
+    <div class="mb-6 flex items-center gap-3">
+      <UButton
+        to="/"
+        icon="i-lucide-arrow-left"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        aria-label="Back to dashboard"
+        class="lg:hidden"
+      />
+      <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+        <UIcon name="i-lucide-folder-open" class="size-5" />
       </div>
-    </header>
+      <div class="min-w-0">
+        <h1 class="text-xl font-semibold tracking-tight text-highlighted sm:text-2xl">
+          Peer library
+        </h1>
+        <p class="truncate font-mono text-xs text-muted">{{ id }}</p>
+      </div>
+    </div>
 
-    <main class="p-6">
-      <!-- restricted -->
-      <UCard v-if="denied" class="mx-auto max-w-md">
-        <div class="flex flex-col items-center gap-4 py-6 text-center">
-          <div class="rounded-full bg-elevated p-3">
-            <UIcon name="i-lucide-lock" class="size-6 text-muted" />
+    <!-- loading skeleton -->
+    <div
+      v-if="loading"
+      class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+    >
+      <div
+        v-for="n in 4"
+        :key="n"
+        class="overflow-hidden rounded-2xl border border-default bg-elevated"
+      >
+        <USkeleton class="aspect-video w-full rounded-none" />
+        <div class="space-y-3 p-3.5">
+          <USkeleton class="h-4 w-3/4" />
+          <div class="flex gap-2">
+            <USkeleton class="h-8 flex-1" />
+            <USkeleton class="h-8 flex-1" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- restricted -->
+    <div v-else-if="denied" class="mx-auto max-w-md">
+      <div class="overflow-hidden rounded-2xl border border-default bg-elevated p-6 sm:p-8">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <div class="flex size-14 items-center justify-center rounded-full bg-warning/10 text-warning ring-1 ring-warning/20">
+            <UIcon name="i-lucide-lock" class="size-6" />
           </div>
           <div class="space-y-1">
-            <p class="font-semibold text-highlighted">This peer's Library is restricted</p>
+            <p class="font-semibold text-highlighted">This library is restricted</p>
             <p class="text-sm text-muted">
-              Send a request to ask this peer for access to their Library.
+              Send a request to ask this peer for access to their library.
             </p>
           </div>
           <div class="flex w-full flex-col gap-3">
@@ -97,59 +124,73 @@ onMounted(load)
               v-model="message"
               placeholder="Add a message (optional)"
               icon="i-lucide-message-square"
+              size="lg"
             />
             <UButton
               label="Request access"
               icon="i-lucide-send"
               color="primary"
+              size="lg"
               block
               :loading="requesting"
               @click="request"
             />
           </div>
         </div>
-      </UCard>
-
-      <!-- catalog list -->
-      <div v-else class="grid gap-3">
-        <UCard v-for="t in titles" :key="t.contentId">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-2">
-              <span class="truncate font-medium text-highlighted">{{ t.displayTitle }}</span>
-              <UBadge
-                v-if="t.partyLive"
-                color="primary"
-                variant="subtle"
-                size="sm"
-              >
-                ● Party · {{ t.partyViewers }}
-              </UBadge>
-            </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <UButton
-                :to="`/watch/${id}/${t.contentId}`"
-                label="Watch"
-                icon="i-lucide-play"
-                color="neutral"
-                variant="soft"
-                size="sm"
-              />
-              <UButton
-                v-if="t.partyLive"
-                label="Join"
-                icon="i-lucide-users"
-                color="primary"
-                variant="soft"
-                size="sm"
-                :loading="joining === t.contentId"
-                @click="join(t.contentId)"
-              />
-            </div>
-          </div>
-        </UCard>
-
-        <p v-if="!loading && !titles.length" class="text-sm text-muted">No titles</p>
       </div>
-    </main>
+    </div>
+
+    <!-- catalog -->
+    <template v-else>
+      <div
+        v-if="titles.length"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      >
+        <TitleCard
+          v-for="t in titles"
+          :key="t.contentId"
+          :title="t.displayTitle"
+          :duration-ms="t.durationMs"
+          :live="t.partyLive"
+          :viewers="t.partyViewers"
+        >
+          <template #actions>
+            <UButton
+              :to="`/watch/${id}/${t.contentId}`"
+              label="Watch"
+              icon="i-lucide-play"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              class="flex-1 justify-center"
+            />
+            <UButton
+              v-if="t.partyLive"
+              label="Join"
+              icon="i-lucide-users"
+              color="primary"
+              variant="solid"
+              size="sm"
+              class="flex-1 justify-center"
+              :loading="joining === t.contentId"
+              @click="join(t.contentId)"
+            />
+          </template>
+        </TitleCard>
+      </div>
+
+      <div
+        v-else
+        class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-default px-6 py-14 text-center"
+      >
+        <div class="flex size-11 items-center justify-center rounded-full bg-muted text-dimmed">
+          <UIcon name="i-lucide-folder-open" class="size-5" />
+        </div>
+        <div class="space-y-1">
+          <p class="font-medium text-highlighted">No titles shared</p>
+          <p class="text-sm text-muted">This peer hasn't shared anything you can watch yet.</p>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
