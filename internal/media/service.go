@@ -71,6 +71,11 @@ func (s *Service) LocalSegment(contentID, name string) ([]byte, error) {
 	return data, nil
 }
 
+// LocalThumbnail serves the owner's own poster image — no access check.
+func (s *Service) LocalThumbnail(contentID string) ([]byte, error) {
+	return s.engine.Thumbnail(context.Background(), contentID)
+}
+
 // OpenFile opens the original source file for download (access-checked).
 func (s *Service) OpenFile(remote identity.NodeID, contentID string) (io.ReadCloser, int64, error) {
 	if !s.policy.Allowed(remote) {

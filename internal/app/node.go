@@ -23,6 +23,7 @@ import (
 type localMedia interface {
 	LocalPlaylist(contentID, name string) ([]byte, string, bool, error)
 	LocalSegment(contentID, name string) ([]byte, error)
+	LocalThumbnail(contentID string) ([]byte, error)
 }
 
 // Node is a running app instance: a signaling client plus its peer sessions.
@@ -355,6 +356,24 @@ func (n *Node) Segment(ctx context.Context, host identity.NodeID, contentID, nam
 		return nil, "", err
 	}
 	return data, contentTypeFor(name), nil
+}
+
+// Thumbnail serves the local poster JPEG for the owner's own library. Remote
+// hosts are not served here — peer thumbnails ride inline in catalog metadata.
+func (n *Node) Thumbnail(_ context.Context, host identity.NodeID, contentID string) ([]byte, string, error) {
+	if host == n.self.NodeID() {
+		n.mu.Lock()
+		lm, ok := n.media.(localMedia)
+		n.mu.Unlock()
+		if ok {
+			data, err := lm.LocalThumbnail(contentID)
+			if err != nil {
+				return nil, "", err
+			}
+			return data, "image/jpeg", nil
+		}
+	}
+	return nil, "", peer.ErrNotFound
 }
 
 func contentTypeFor(name string) string {

@@ -2,11 +2,14 @@ package media_test
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/squall-chua/p2p-hls/internal/media"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/stretchr/testify/require"
@@ -57,4 +60,25 @@ func TestServiceOpenFileForDownload(t *testing.T) {
 	defer rc.Close()
 	b, _ := io.ReadAll(rc)
 	require.Equal(t, int64(len(b)), size)
+}
+
+func TestServiceLocalThumbnail(t *testing.T) {
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	src := filepath.Join(t.TempDir(), "movie.mp4")
+	require.NoError(t, os.WriteFile(src, []byte("x"), 0o600))
+	require.NoError(t, store.Upsert(library.Title{
+		ContentID: "cid", Path: src, DurationMS: 10000, Width: 1920, Height: 1080,
+	}))
+
+	cache := t.TempDir()
+	// Pre-place a cached thumbnail so no real ffmpeg runs.
+	require.NoError(t, os.MkdirAll(filepath.Join(cache, "cid"), 0o700))
+	require.NoError(t, os.WriteFile(library.ThumbPath(cache, "cid"), []byte("JPEG"), 0o600))
+
+	svc := media.NewService(media.NewEngine(store, &fakeRunner{}, cache), catalog.NewPolicy(catalog.VisibilityRestricted))
+	data, err := svc.LocalThumbnail("cid")
+	require.NoError(t, err)
+	require.Equal(t, "JPEG", string(data))
 }
