@@ -53,18 +53,6 @@ func SegIndex(name string) (int, bool) {
 	return i, true
 }
 
-// SegName is the inverse of SegIndex: 42 -> "seg00042.ts".
-func SegName(i int) string {
-	return "seg" + leftPad(strconv.Itoa(i), 5) + ".ts"
-}
-
-func leftPad(s string, n int) string {
-	for len(s) < n {
-		s = "0" + s
-	}
-	return s
-}
-
 // Swarm is the pure decision engine for one viewed party. Not safe for concurrent
 // use; the owning swarm session serializes access under its own mutex.
 type Swarm struct {

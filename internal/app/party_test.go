@@ -7,9 +7,50 @@ import (
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/party"
 	"github.com/squall-chua/p2p-hls/internal/peer"
+	"github.com/squall-chua/p2p-hls/internal/swarm"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPartyCloseStopsHeartbeat(t *testing.T) {
+	pc := newPartyCoordinator(nil, "host", party.RealClock(), party.DefaultConfig())
+	pc.StartParty("cid")
+	pc.mu.Lock()
+	stop := pc.stopHB
+	pc.mu.Unlock()
+	require.NotNil(t, stop)
+
+	pc.close()
+
+	select {
+	case <-stop:
+	default:
+		t.Fatal("heartbeat stop channel not closed by close()")
+	}
+	pc.mu.Lock()
+	require.Nil(t, pc.stopHB)
+	pc.mu.Unlock()
+}
+
+func TestPartyCloseStopsSwarmGossip(t *testing.T) {
+	pc := newPartyCoordinator(nil, "self", party.RealClock(), party.DefaultConfig())
+	ss := newSwarmSession(&fakeTransport{}, "self", "host", "cid", swarm.RealClock(), swarm.DefaultConfig())
+	ss.start()
+	pc.mu.Lock()
+	pc.swarm = ss
+	pc.mu.Unlock()
+
+	pc.close()
+
+	select {
+	case <-ss.stop:
+	default:
+		t.Fatal("swarm gossip stop channel not closed by close()")
+	}
+	pc.mu.Lock()
+	require.Nil(t, pc.swarm)
+	pc.mu.Unlock()
+}
 
 func TestCoordinatorHostLifecycleAndProvider(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("host"), party.RealClock(), party.DefaultConfig())
