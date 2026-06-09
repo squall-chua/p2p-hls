@@ -243,6 +243,11 @@ used. All keys:
 | `block_list` | []string | `[]` | Node IDs always denied. |
 | `data_dir` | string | the config dir | Where `library.db` and `cache/` are stored. |
 
+> **Note:** Subfolders are scanned recursively. Library items are identified by a
+> content hash (BLAKE3), so byte-identical files in different folders collapse to a
+> single library entry — copying a video into a subfolder does not create a second
+> entry.
+
 **Files created under the config/data dir:**
 
 ```
