@@ -86,7 +86,7 @@ func main() {
 		fatal(err)
 	}
 
-	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests())
+	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests(), cacheDir)
 	node.SetCatalog(catalogSvc)
 
 	node.SetMedia(media.NewService(media.NewEngine(store, media.ExecRunner{}, cacheDir), policy))

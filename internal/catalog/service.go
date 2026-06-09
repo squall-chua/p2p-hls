@@ -1,11 +1,15 @@
 package catalog
 
 import (
+	"os"
+
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/squall-chua/p2p-hls/internal/peer"
 	peerv1 "github.com/squall-chua/p2p-hls/proto/peer/v1"
 )
+
+const maxThumbBytes = 64 * 1024
 
 // PartyProvider reports live Watch Party state for a Title so Browse can annotate
 // it. Optional: a nil provider means "no parties".
@@ -16,18 +20,19 @@ type PartyProvider interface {
 // Service answers browse RPCs from Viewers, enforcing the access Policy.
 // It implements peer.RequestHandler.
 type Service struct {
-	store  *library.Store
-	policy *Policy
-	reqs   *Requests
-	party  PartyProvider
+	store    *library.Store
+	policy   *Policy
+	reqs     *Requests
+	party    PartyProvider
+	cacheDir string
 }
 
 // SetPartyProvider installs the source of live-party annotations for Browse.
 func (s *Service) SetPartyProvider(p PartyProvider) { s.party = p }
 
-// NewService wires the Store, Policy, and Requests together.
-func NewService(store *library.Store, policy *Policy, reqs *Requests) *Service {
-	return &Service{store: store, policy: policy, reqs: reqs}
+// NewService wires the Store, Policy, Requests, and the cache dir thumbnails live under.
+func NewService(store *library.Store, policy *Policy, reqs *Requests, cacheDir string) *Service {
+	return &Service{store: store, policy: policy, reqs: reqs, cacheDir: cacheDir}
 }
 
 // Browse returns the Catalog visible to remote, or peer.ErrDenied.
@@ -41,7 +46,7 @@ func (s *Service) Browse(remote identity.NodeID) ([]*peerv1.TitleMeta, error) {
 	}
 	out := make([]*peerv1.TitleMeta, 0, len(titles))
 	for _, t := range titles {
-		out = append(out, s.toMeta(t))
+		out = append(out, s.toMeta(t, true))
 	}
 	return out, nil
 }
@@ -54,7 +59,7 @@ func (s *Service) Library() ([]*peerv1.TitleMeta, error) {
 	}
 	out := make([]*peerv1.TitleMeta, 0, len(titles))
 	for _, t := range titles {
-		out = append(out, s.toMeta(t))
+		out = append(out, s.toMeta(t, false))
 	}
 	return out, nil
 }
@@ -71,7 +76,7 @@ func (s *Service) GetMetadata(remote identity.NodeID, contentID string) (*peerv1
 	if !ok {
 		return nil, peer.ErrNotFound
 	}
-	return s.toMeta(t), nil
+	return s.toMeta(t, false), nil
 }
 
 // RequestAccess records a pending access request from remote.
@@ -93,7 +98,7 @@ func (s *Service) Approve(node identity.NodeID) {
 	s.policy.AddAllow(node)
 }
 
-func (s *Service) toMeta(t library.Title) *peerv1.TitleMeta {
+func (s *Service) toMeta(t library.Title, includeThumb bool) *peerv1.TitleMeta {
 	m := &peerv1.TitleMeta{
 		ContentId:     t.ContentID,
 		DisplayTitle:  t.DisplayTitle,
@@ -110,6 +115,11 @@ func (s *Service) toMeta(t library.Title) *peerv1.TitleMeta {
 		m.Subtitles = append(m.Subtitles, &peerv1.SubtitleTrack{
 			Id: sub.ID, Language: sub.Language, Label: sub.Label, Kind: sub.Kind,
 		})
+	}
+	if includeThumb && s.cacheDir != "" {
+		if b, err := os.ReadFile(library.ThumbPath(s.cacheDir, t.ContentID)); err == nil && len(b) <= maxThumbBytes {
+			m.Thumbnail = b
+		}
 	}
 	if s.party != nil {
 		if live, viewers := s.party.LiveParty(t.ContentID); live {

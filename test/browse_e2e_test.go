@@ -43,7 +43,7 @@ func TestBrowseAfterApprovalEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	defer store.Close()
 	require.NoError(t, library.NewScanner(store, e2eProber{}, []string{root}).ScanOnce(ctx))
-	svc := catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityRestricted), catalog.NewRequests())
+	svc := catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityRestricted), catalog.NewRequests(), t.TempDir())
 
 	idHost, _ := identity.Generate()
 	idViewer, _ := identity.Generate()

@@ -1,6 +1,7 @@
 package catalog_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newServiceWithTitle(t *testing.T) (*catalog.Service, *catalog.Policy, *catalog.Requests) {
+func newServiceWithTitle(t *testing.T) (*catalog.Service, *catalog.Policy, *catalog.Requests, string) {
 	t.Helper()
 	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
 	require.NoError(t, err)
@@ -24,17 +25,24 @@ func newServiceWithTitle(t *testing.T) (*catalog.Service, *catalog.Policy, *cata
 	}))
 	policy := catalog.NewPolicy(catalog.VisibilityRestricted)
 	reqs := catalog.NewRequests()
-	return catalog.NewService(store, policy, reqs), policy, reqs
+	cache := t.TempDir()
+	return catalog.NewService(store, policy, reqs, cache), policy, reqs, cache
+}
+
+func writeThumb(t *testing.T, cache, cid string, b []byte) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Join(cache, cid), 0o700))
+	require.NoError(t, os.WriteFile(library.ThumbPath(cache, cid), b, 0o600))
 }
 
 func TestServiceBrowseDeniedByDefault(t *testing.T) {
-	svc, _, _ := newServiceWithTitle(t)
+	svc, _, _, _ := newServiceWithTitle(t)
 	_, err := svc.Browse(identity.NodeID("bob"))
 	require.ErrorIs(t, err, peer.ErrDenied)
 }
 
 func TestServiceBrowseAfterAllow(t *testing.T) {
-	svc, policy, _ := newServiceWithTitle(t)
+	svc, policy, _, _ := newServiceWithTitle(t)
 	policy.AddAllow(identity.NodeID("bob"))
 	titles, err := svc.Browse(identity.NodeID("bob"))
 	require.NoError(t, err)
@@ -46,20 +54,20 @@ func TestServiceBrowseAfterAllow(t *testing.T) {
 }
 
 func TestServiceGetMetadataNotFound(t *testing.T) {
-	svc, policy, _ := newServiceWithTitle(t)
+	svc, policy, _, _ := newServiceWithTitle(t)
 	policy.AddAllow(identity.NodeID("bob"))
 	_, err := svc.GetMetadata(identity.NodeID("bob"), "nope")
 	require.ErrorIs(t, err, peer.ErrNotFound)
 }
 
 func TestServiceRequestAccessRecorded(t *testing.T) {
-	svc, _, reqs := newServiceWithTitle(t)
+	svc, _, reqs, _ := newServiceWithTitle(t)
 	require.NoError(t, svc.RequestAccess(identity.NodeID("bob"), "pls"))
 	require.Equal(t, []identity.NodeID{identity.NodeID("bob")}, reqs.List())
 }
 
 func TestServiceGetMetadataDeniedDoesNotProbeExistence(t *testing.T) {
-	svc, _, _ := newServiceWithTitle(t)
+	svc, _, _, _ := newServiceWithTitle(t)
 	// A denied peer gets ErrDenied for an EXISTING content id (cid-1), proving the
 	// deny-check runs before the store lookup — denied peers can't probe existence.
 	_, err := svc.GetMetadata(identity.NodeID("bob"), "cid-1")
@@ -67,4 +75,40 @@ func TestServiceGetMetadataDeniedDoesNotProbeExistence(t *testing.T) {
 	// ...and the same for a missing id.
 	_, err = svc.GetMetadata(identity.NodeID("bob"), "nope")
 	require.ErrorIs(t, err, peer.ErrDenied)
+}
+
+func TestBrowseEmbedsThumbnailWhenPresent(t *testing.T) {
+	svc, policy, _, cache := newServiceWithTitle(t)
+	policy.AddAllow(identity.NodeID("bob"))
+	writeThumb(t, cache, "cid-1", []byte("JPEGBYTES"))
+
+	titles, err := svc.Browse(identity.NodeID("bob"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("JPEGBYTES"), titles[0].GetThumbnail())
+}
+
+func TestBrowseOmitsThumbnailWhenAbsent(t *testing.T) {
+	svc, policy, _, _ := newServiceWithTitle(t)
+	policy.AddAllow(identity.NodeID("bob"))
+	titles, err := svc.Browse(identity.NodeID("bob"))
+	require.NoError(t, err)
+	require.Empty(t, titles[0].GetThumbnail())
+}
+
+func TestBrowseOmitsOversizeThumbnail(t *testing.T) {
+	svc, policy, _, cache := newServiceWithTitle(t)
+	policy.AddAllow(identity.NodeID("bob"))
+	writeThumb(t, cache, "cid-1", make([]byte, 65*1024)) // > 64 KB cap
+
+	titles, err := svc.Browse(identity.NodeID("bob"))
+	require.NoError(t, err)
+	require.Empty(t, titles[0].GetThumbnail())
+}
+
+func TestLibraryDoesNotEmbedThumbnail(t *testing.T) {
+	svc, _, _, cache := newServiceWithTitle(t)
+	writeThumb(t, cache, "cid-1", []byte("JPEGBYTES"))
+	titles, err := svc.Library()
+	require.NoError(t, err)
+	require.Empty(t, titles[0].GetThumbnail(), "owner library uses the local stream URL, not embedded bytes")
 }

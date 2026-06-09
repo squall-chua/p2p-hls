@@ -25,7 +25,7 @@ func (f fakeParty) LiveParty(contentID string) (bool, int) {
 const e2eTitleCID = "cid-1"
 
 func TestBrowseAnnotatesLiveParty(t *testing.T) {
-	svc, policy, _ := newServiceWithTitle(t)
+	svc, policy, _, _ := newServiceWithTitle(t)
 	policy.AddAllow(identity.NodeID("bob"))
 	svc.SetPartyProvider(fakeParty{live: true, viewers: 3, cid: e2eTitleCID})
 
@@ -37,7 +37,7 @@ func TestBrowseAnnotatesLiveParty(t *testing.T) {
 }
 
 func TestBrowseNoProviderLeavesPartyFalse(t *testing.T) {
-	svc, policy, _ := newServiceWithTitle(t)
+	svc, policy, _, _ := newServiceWithTitle(t)
 	policy.AddAllow(identity.NodeID("bob"))
 	titles, err := svc.Browse(identity.NodeID("bob"))
 	require.NoError(t, err)
