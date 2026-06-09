@@ -7,6 +7,7 @@ interface TitleView {
   durationMs: number
   partyLive: boolean
   partyViewers: number
+  thumbnail?: string
 }
 
 defineProps<{ titles: TitleView[] }>()
@@ -49,6 +50,7 @@ async function startParty(contentId: string) {
       :duration-ms="t.durationMs"
       :live="t.partyLive"
       :viewers="t.partyViewers"
+      :thumbnail="self ? bridge.thumbURL(self, t.contentId) : ''"
     >
       <template #actions>
         <UButton

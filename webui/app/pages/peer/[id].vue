@@ -7,6 +7,7 @@ interface TitleView {
   durationMs: number
   partyLive: boolean
   partyViewers: number
+  thumbnail: string
 }
 
 const route = useRoute()
@@ -153,6 +154,7 @@ onMounted(load)
           :duration-ms="t.durationMs"
           :live="t.partyLive"
           :viewers="t.partyViewers"
+          :thumbnail="t.thumbnail"
         >
           <template #actions>
             <UButton
