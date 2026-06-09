@@ -19,6 +19,7 @@ import (
 type Streamer interface {
 	Playlist(ctx context.Context, host identity.NodeID, contentID, name string) (data []byte, contentType string, err error)
 	Segment(ctx context.Context, host identity.NodeID, contentID, name string) (data []byte, contentType string, err error)
+	Thumbnail(ctx context.Context, host identity.NodeID, contentID string) (data []byte, contentType string, err error)
 }
 
 // Bridge is the loopback HTTP server.
@@ -108,9 +109,12 @@ func (b *Bridge) handleStream(w http.ResponseWriter, r *http.Request) {
 		ct   string
 		err  error
 	)
-	if strings.HasSuffix(name, ".m3u8") {
+	switch {
+	case name == "thumb.jpg":
+		data, ct, err = b.streamer.Thumbnail(r.Context(), identity.NodeID(node), cid)
+	case strings.HasSuffix(name, ".m3u8"):
 		data, ct, err = b.streamer.Playlist(r.Context(), identity.NodeID(node), cid, name)
-	} else {
+	default:
 		data, ct, err = b.streamer.Segment(r.Context(), identity.NodeID(node), cid, name)
 	}
 	if err != nil {

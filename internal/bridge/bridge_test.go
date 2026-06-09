@@ -22,6 +22,9 @@ func (fakeStreamer) Playlist(_ context.Context, _ identity.NodeID, _, name strin
 func (fakeStreamer) Segment(_ context.Context, _ identity.NodeID, _, _ string) ([]byte, string, error) {
 	return []byte("TSBYTES"), "video/mp2t", nil
 }
+func (fakeStreamer) Thumbnail(_ context.Context, _ identity.NodeID, _ string) ([]byte, string, error) {
+	return []byte("JPEG"), "image/jpeg", nil
+}
 
 func TestBridgeServesPlaylistAndSegmentWithToken(t *testing.T) {
 	b := bridge.New(fakeStreamer{}, "secret-token")
@@ -59,6 +62,20 @@ func TestBridgeRejectsBadToken(t *testing.T) {
 func TestBridgeRefusesNonLoopbackBind(t *testing.T) {
 	b := bridge.New(fakeStreamer{}, "tok")
 	require.Error(t, b.Start("0.0.0.0:0"), "must refuse to bind a non-loopback address")
+}
+
+func TestHandleStreamServesThumbnail(t *testing.T) {
+	b := bridge.New(fakeStreamer{}, "secret-token")
+	require.NoError(t, b.Start("127.0.0.1:0"))
+	defer b.Close()
+
+	resp, err := http.Get(b.BaseURL() + "/s/secret-token/node1/cid1/thumb.jpg")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "image/jpeg", resp.Header.Get("Content-Type"))
+	body, _ := io.ReadAll(resp.Body)
+	require.Equal(t, "JPEG", string(body))
 }
 
 func TestOriginAllowed(t *testing.T) {
