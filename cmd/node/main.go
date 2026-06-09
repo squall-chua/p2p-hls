@@ -81,19 +81,22 @@ func main() {
 	for _, b := range cfg.BlockList {
 		policy.AddBlock(identity.NodeID(b))
 	}
-	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests())
-	node.SetCatalog(catalogSvc)
-
 	cacheDir := filepath.Join(dataDir, "cache")
 	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
 		fatal(err)
 	}
+
+	catalogSvc := catalog.NewService(store, policy, catalog.NewRequests())
+	node.SetCatalog(catalogSvc)
+
 	node.SetMedia(media.NewService(media.NewEngine(store, media.ExecRunner{}, cacheDir), policy))
 
 	// Index shared folders so the Library is populated before the UI loads.
 	if len(cfg.SharedFolders) > 0 {
 		scanCtx, scanCancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		if serr := library.NewScanner(store, library.FFProbe{}, cfg.SharedFolders).ScanOnce(scanCtx); serr != nil {
+		scanner := library.NewScanner(store, library.FFProbe{}, cfg.SharedFolders).
+			SetThumbnailer(cacheDir, library.FFThumbnailer{})
+		if serr := scanner.ScanOnce(scanCtx); serr != nil {
 			slog.Warn("library scan failed", "err", serr)
 		}
 		scanCancel()
