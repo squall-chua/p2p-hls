@@ -102,6 +102,12 @@ func main() {
 		scanCancel()
 		titles, _ := store.All()
 		fmt.Printf("Library: %d title(s) indexed from %v\n", len(titles), cfg.SharedFolders)
+		// Live-watch shared folders so new/changed files appear without a restart.
+		go func() {
+			if werr := scanner.Watch(context.Background()); werr != nil {
+				slog.Warn("library watch stopped", "err", werr)
+			}
+		}()
 	}
 
 	token := app.NewToken()
