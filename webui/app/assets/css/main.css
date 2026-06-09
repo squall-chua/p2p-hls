@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* ----------------------------------------------------------------------------
+   P2P HLS — cinematic dark media theme
+   Style: "Modern Dark (Cinema)" — deep near-black surfaces, hairline borders,
+   indigo/violet brand glow, rose "LIVE" accent, Inter type. Light + dark.
+---------------------------------------------------------------------------- */
+
+@theme {
+  /* @nuxt/fonts auto-loads this in Nuxt. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  --ui-radius: 0.625rem;        /* 10px base; big surfaces use rounded-2xl */
+  --ui-container: 88rem;
+
+  /* Light — clean, premium: muted page, cards lift to white. */
+  --ui-bg: #f7f7f9;
+  --ui-bg-muted: #efeff2;
+  --ui-bg-elevated: #ffffff;
+  --ui-bg-accented: #e7e7ec;
+  --ui-border: var(--ui-color-neutral-200);
+  --ui-border-muted: var(--ui-color-neutral-100);
+  --ui-border-accented: var(--ui-color-neutral-300);
+}
+
+.dark {
+  /* Dark — cinematic deep blacks (never pure #000), hairline borders. */
+  --ui-bg: #050506;
+  --ui-bg-muted: #0c0c0e;
+  --ui-bg-elevated: #111114;
+  --ui-bg-accented: #1b1b20;
+  --ui-border: rgba(255, 255, 255, 0.08);
+  --ui-border-muted: rgba(255, 255, 255, 0.05);
+  --ui-border-accented: rgba(255, 255, 255, 0.14);
+  --ui-text-highlighted: #f7f7f8;
+  --ui-text: #d6d6db;
+  --ui-text-muted: #8b8b94;
+  --ui-text-dimmed: #5b5b65;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Atmospheric brand glow behind the app shell — dark mode only, static. */
+.app-ambient { position: relative; }
+.dark .app-ambient::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 38rem at 12% -8%,
+      color-mix(in oklch, var(--ui-primary) 14%, transparent), transparent 60%),
+    radial-gradient(46rem 36rem at 108% 4%,
+      color-mix(in oklch, var(--ui-secondary) 12%, transparent), transparent 58%);
+}
+
+/* Translucent blurred chrome (sidebar, floating bars, modals). */
+.glass {
+  background: color-mix(in srgb, var(--ui-bg) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* Poster "sheen" — cinematic brand-tinted backdrop for media tiles. */
+.poster-sheen {
+  background:
+    radial-gradient(120% 120% at 0% 0%,
+      color-mix(in oklch, var(--ui-primary) 24%, transparent), transparent 55%),
+    radial-gradient(120% 120% at 100% 100%,
+      color-mix(in oklch, var(--ui-secondary) 20%, transparent), transparent 55%),
+    var(--ui-bg-muted);
+}
+
+/* Brand glow ring — primary CTAs and the "now watching" hero. */
+.glow-primary {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--ui-primary) 35%, transparent),
+    0 10px 44px -10px color-mix(in oklch, var(--ui-primary) 50%, transparent);
+}
+
+/* Live indicator pulse (rose). Reduced-motion safe. */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.82); }
+}
+.live-dot { animation: live-pulse 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Thin, theme-aware scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: var(--ui-border-accented) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--ui-border-accented);
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ui-text-dimmed); }
+
+::selection { background: color-mix(in oklch, var(--ui-primary) 32%, transparent); }

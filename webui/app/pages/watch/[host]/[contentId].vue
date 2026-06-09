@@ -4,6 +4,8 @@ import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
 import { formatDrift } from '~/lib/actuator'
 
+definePageMeta({ layout: 'theater' })
+
 const route = useRoute()
 const bridge = useBridge()
 const toast = useToast()
@@ -56,16 +58,17 @@ async function end() {
 }
 
 const roleBadge = computed(() => ({
-  host: { label: 'Hosting', color: 'primary', icon: 'i-lucide-radio' },
-  viewer: { label: 'Watching', color: 'neutral', icon: 'i-lucide-eye' },
+  host: { label: 'Hosting', color: 'error', icon: 'i-lucide-radio' },
+  viewer: { label: 'Watching', color: 'primary', icon: 'i-lucide-eye' },
   solo: { label: 'Solo', color: 'neutral', icon: 'i-lucide-play' },
-}[role.value] as { label: string; color: 'primary' | 'neutral'; icon: string }))
+}[role.value] as { label: string; color: 'primary' | 'neutral' | 'error'; icon: string }))
 </script>
 
 <template>
-  <div class="min-h-screen bg-default">
-    <header class="border-b border-default px-6 py-4">
-      <div class="flex items-center gap-3">
+  <div class="min-h-dvh">
+    <!-- floating chrome -->
+    <header class="glass sticky top-0 z-30 border-b border-default">
+      <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
         <UButton
           to="/"
           icon="i-lucide-arrow-left"
@@ -74,49 +77,64 @@ const roleBadge = computed(() => ({
           size="sm"
           aria-label="Back to dashboard"
         />
-        <UIcon name="i-lucide-monitor-play" class="size-5 text-primary" />
-        <h1 class="truncate text-lg font-semibold text-highlighted">Watch</h1>
-        <UBadge :color="roleBadge.color" :icon="roleBadge.icon" variant="subtle" size="sm">
+        <UIcon name="i-lucide-monitor-play" class="size-5 shrink-0 text-primary" />
+        <h1 class="text-sm font-semibold text-highlighted">Watch</h1>
+        <UBadge :color="roleBadge.color" :icon="roleBadge.icon" variant="soft" size="sm">
           {{ roleBadge.label }}
         </UBadge>
-        <span class="ml-auto truncate font-mono text-xs text-muted">{{ host }}</span>
+        <span class="ml-auto hidden max-w-[14rem] truncate font-mono text-xs text-dimmed sm:block">
+          {{ host }}
+        </span>
+        <ColorModeButton class="sm:ml-0 ml-auto" />
       </div>
     </header>
 
-    <main class="mx-auto max-w-4xl p-6">
-      <div class="overflow-hidden rounded-lg border border-default bg-black shadow-sm">
-        <video
-          ref="video"
-          :controls="role !== 'viewer'"
-          class="aspect-video w-full bg-black"
-        />
+    <main class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <!-- player -->
+      <div class="relative">
+        <div class="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-primary/10 blur-3xl" />
+        <div class="overflow-hidden rounded-2xl border border-default bg-black shadow-2xl shadow-black/50 ring-1 ring-white/5">
+          <video
+            ref="video"
+            :controls="role !== 'viewer'"
+            class="aspect-video w-full bg-black"
+          />
+        </div>
       </div>
 
-      <div v-if="role === 'viewer'" class="mt-3 flex items-center gap-1.5 text-sm text-muted">
-        <UIcon name="i-lucide-radio-tower" class="size-4 text-primary" />
-        <span>Synced · {{ formatDrift(drift) }}</span>
+      <!-- status + actions -->
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div
+          v-if="role === 'viewer'"
+          class="flex items-center gap-2 rounded-full border border-default bg-elevated px-3 py-1.5 text-sm"
+        >
+          <span class="live-dot size-2 rounded-full bg-success" />
+          <span class="font-medium text-highlighted">Synced</span>
+          <span class="tabular-nums text-dimmed">· {{ formatDrift(drift) }}</span>
+        </div>
+        <div v-else />
+
+        <div v-if="role !== 'solo'">
+          <UButton
+            v-if="role === 'viewer'"
+            label="Leave"
+            icon="i-lucide-log-out"
+            color="neutral"
+            variant="soft"
+            @click="leave"
+          />
+          <UButton
+            v-else-if="role === 'host'"
+            label="End party"
+            icon="i-lucide-circle-stop"
+            color="error"
+            variant="soft"
+            @click="end"
+          />
+        </div>
       </div>
 
       <AudienceStrip v-if="role !== 'solo'" :host="host" :content-id="cid" />
-
-      <div v-if="role !== 'solo'" class="mt-6">
-        <UButton
-          v-if="role === 'viewer'"
-          label="Leave"
-          icon="i-lucide-log-out"
-          color="neutral"
-          variant="soft"
-          @click="leave"
-        />
-        <UButton
-          v-else-if="role === 'host'"
-          label="End party"
-          icon="i-lucide-circle-stop"
-          color="error"
-          variant="soft"
-          @click="end"
-        />
-      </div>
     </main>
   </div>
 </template>

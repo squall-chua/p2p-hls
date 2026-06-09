@@ -20,16 +20,6 @@ onMounted(async () => {
   self.value = (await bridge.resolveSelf()).nodeId
 })
 
-function fmtDuration(ms: number): string {
-  if (!ms || ms <= 0) return ''
-  const total = Math.round(ms / 1000)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
-}
-
 async function startParty(contentId: string) {
   starting.value = new Set(starting.value).add(contentId)
   try {
@@ -48,29 +38,19 @@ async function startParty(contentId: string) {
 </script>
 
 <template>
-  <div v-if="titles.length" class="flex flex-col gap-2">
-    <div
+  <div
+    v-if="titles.length"
+    class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+  >
+    <TitleCard
       v-for="t in titles"
       :key="t.contentId"
-      class="flex items-center justify-between gap-3 rounded-md bg-elevated/50 px-3 py-2"
+      :title="t.displayTitle"
+      :duration-ms="t.durationMs"
+      :live="t.partyLive"
+      :viewers="t.partyViewers"
     >
-      <div class="min-w-0">
-        <div class="flex items-center gap-2">
-          <span class="truncate font-medium text-highlighted">{{ t.displayTitle }}</span>
-          <UBadge
-            v-if="t.partyLive"
-            color="error"
-            variant="subtle"
-            size="sm"
-          >
-            ● Party · {{ t.partyViewers }}
-          </UBadge>
-        </div>
-        <span v-if="fmtDuration(t.durationMs)" class="text-xs text-dimmed">
-          {{ fmtDuration(t.durationMs) }}
-        </span>
-      </div>
-      <div class="flex shrink-0 items-center gap-2">
+      <template #actions>
         <UButton
           :to="`/watch/${self}/${t.contentId}`"
           label="Watch"
@@ -78,18 +58,32 @@ async function startParty(contentId: string) {
           color="neutral"
           variant="soft"
           size="sm"
+          class="flex-1 justify-center"
         />
         <UButton
           label="Start party"
           icon="i-lucide-users"
           color="primary"
-          variant="soft"
+          variant="solid"
           size="sm"
+          class="flex-1 justify-center"
           :loading="starting.has(t.contentId)"
           @click="startParty(t.contentId)"
         />
-      </div>
+      </template>
+    </TitleCard>
+  </div>
+
+  <div
+    v-else
+    class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-default px-6 py-14 text-center"
+  >
+    <div class="flex size-11 items-center justify-center rounded-full bg-muted text-dimmed">
+      <UIcon name="i-lucide-film" class="size-5" />
+    </div>
+    <div class="space-y-1">
+      <p class="font-medium text-highlighted">Your library is empty</p>
+      <p class="text-sm text-muted">Shared titles you can watch or host will show up here.</p>
     </div>
   </div>
-  <p v-else class="text-sm text-muted">Your library is empty</p>
 </template>

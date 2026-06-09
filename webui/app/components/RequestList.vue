@@ -25,18 +25,25 @@ async function approve(id: string) {
 </script>
 
 <template>
-  <div v-if="requests.length" class="flex flex-col gap-2">
+  <div v-if="requests.length" class="grid gap-2 sm:grid-cols-2">
     <div
       v-for="id in requests"
       :key="id"
-      class="flex items-center justify-between gap-3 rounded-md bg-elevated/50 px-3 py-2"
+      class="flex items-center gap-3 rounded-xl border border-default bg-elevated px-3 py-2.5"
     >
-      <span class="truncate font-mono text-sm text-highlighted">{{ id }}</span>
+      <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+        <UIcon name="i-lucide-user-round-plus" class="size-4" />
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-medium text-highlighted">Wants library access</p>
+        <p class="truncate font-mono text-xs text-muted">{{ id }}</p>
+      </div>
       <UButton
         label="Approve"
         icon="i-lucide-check"
         color="primary"
         size="sm"
+        class="shrink-0"
         :loading="pending.has(id)"
         @click="approve(id)"
       />

@@ -79,7 +79,10 @@ function spawnNode(name: string, configDir: string, bridgeAddr: string): Promise
       buf += chunk.toString()
       const idM = buf.match(/Node ID:\s*(\S+)/)
       if (idM) nodeId = idM[1]
-      const urlM = buf.match(/UI ready:\s*(\S+)/)
+      // The node prints the bridge URL on "UI ready:" (no token) and the
+      // token-bearing URL on "Dev URL (nuxt dev): <base>/?token=<hex>". Capture
+      // the latter so tokenFrom(url) can read the session token.
+      const urlM = buf.match(/Dev URL[^:]*:\s*(\S+)/)
       if (urlM) url = urlM[1]
       if (nodeId && url) {
         clearTimeout(timer)
