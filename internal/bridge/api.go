@@ -25,6 +25,7 @@ type TitleView struct {
 	DurationMs   int64  `json:"durationMs"`
 	PartyLive    bool   `json:"partyLive"`
 	PartyViewers int    `json:"partyViewers"`
+	Thumbnail    string `json:"thumbnail"` // data: URL for peer entries; empty for own library (UI builds the stream URL)
 }
 
 // CurrentPartyView is the node's active watch party for the "Now watching" panel.

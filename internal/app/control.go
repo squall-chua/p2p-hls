@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/squall-chua/p2p-hls/internal/bridge"
 	"github.com/squall-chua/p2p-hls/internal/identity"
@@ -101,12 +102,17 @@ func (n *Node) titleFor(contentID string) string {
 func toTitleViews(metas []*peerv1.TitleMeta) []bridge.TitleView {
 	out := make([]bridge.TitleView, 0, len(metas))
 	for _, m := range metas {
+		thumb := ""
+		if b := m.GetThumbnail(); len(b) > 0 {
+			thumb = "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(b)
+		}
 		out = append(out, bridge.TitleView{
 			ContentID:    m.GetContentId(),
 			DisplayTitle: m.GetDisplayTitle(),
 			DurationMs:   m.GetDurationMs(),
 			PartyLive:    m.GetPartyLive(),
 			PartyViewers: int(m.GetPartyViewers()),
+			Thumbnail:    thumb,
 		})
 	}
 	return out
