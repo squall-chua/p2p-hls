@@ -7,6 +7,9 @@ interface PeerView {
 
 const props = defineProps<{ me: string; peers: PeerView[] }>()
 
+const route = useRoute()
+const isHome = computed(() => route.path === '/')
+
 const onlineCount = computed(() => props.peers.filter((p) => p.online).length)
 
 const initials = computed(() => {
@@ -31,8 +34,14 @@ const initials = computed(() => {
       </div>
     </div>
 
-    <!-- identity -->
-    <div class="mx-3 flex items-center gap-3 rounded-xl border border-muted bg-muted/40 px-3 py-2.5">
+    <!-- identity / your library -->
+    <NuxtLink
+      to="/"
+      class="group mx-3 flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200"
+      :class="isHome
+        ? 'border-accented bg-elevated'
+        : 'border-muted bg-muted/40 hover:bg-muted'"
+    >
       <UAvatar
         :text="initials"
         size="sm"
@@ -42,10 +51,17 @@ const initials = computed(() => {
         <p class="truncate text-sm font-medium text-highlighted">{{ me || 'this node' }}</p>
         <p class="flex items-center gap-1.5 text-xs text-muted">
           <span class="size-1.5 rounded-full bg-success" />
-          you
+          your library
         </p>
       </div>
-    </div>
+      <UIcon
+        name="i-lucide-house"
+        class="ml-auto size-4 shrink-0 transition-opacity"
+        :class="isHome
+          ? 'text-muted opacity-100'
+          : 'text-dimmed opacity-0 group-hover:opacity-100'"
+      />
+    </NuxtLink>
 
     <!-- peers -->
     <div class="flex items-center justify-between px-5 pb-2 pt-6">
