@@ -65,6 +65,7 @@ message TitleMeta {
   repeated SubtitleTrack subtitles = 11;
   bool party_live = 12;     // a live Watch Party exists for this Title on this Host
   int32 party_viewers = 13; // current Audience size (Viewers, excluding the Host)
+  bytes thumbnail = 14;     // small poster JPEG (480px); empty when unavailable
 }
 
 message SubtitleTrack {
