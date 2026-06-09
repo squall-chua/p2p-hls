@@ -117,3 +117,44 @@ func TestEngineSegmentNotReadyReturnsUnavailable(t *testing.T) {
 
 	close(br.release) // release the job so its goroutine finishes
 }
+
+// thumbRunner simulates ffmpeg's thumbnail invocation: write the output file
+// (the last arg) so the engine can read it back.
+type thumbRunner struct{ calls int }
+
+func (r *thumbRunner) Run(_ context.Context, args []string) error {
+	r.calls++
+	out := args[len(args)-1]
+	return os.WriteFile(out, []byte("JPEGBYTES"), 0o600)
+}
+
+func TestEngineThumbnailGeneratesThenCaches(t *testing.T) {
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	src := filepath.Join(t.TempDir(), "movie.mp4")
+	require.NoError(t, os.WriteFile(src, []byte("x"), 0o600))
+	require.NoError(t, store.Upsert(library.Title{
+		ContentID: "cid", Path: src, DurationMS: 10000, Width: 1920, Height: 1080,
+	}))
+
+	r := &thumbRunner{}
+	eng := media.NewEngine(store, r, t.TempDir())
+
+	data, err := eng.Thumbnail(context.Background(), "cid")
+	require.NoError(t, err)
+	require.Equal(t, "JPEGBYTES", string(data))
+	require.Equal(t, 1, r.calls)
+
+	// Second call is served from cache — no second ffmpeg run.
+	data, err = eng.Thumbnail(context.Background(), "cid")
+	require.NoError(t, err)
+	require.Equal(t, "JPEGBYTES", string(data))
+	require.Equal(t, 1, r.calls)
+}
+
+func TestEngineThumbnailUnknownContentNotFound(t *testing.T) {
+	eng, _ := newEngineWithTitle(t)
+	_, err := eng.Thumbnail(context.Background(), "missing")
+	require.ErrorIs(t, err, peer.ErrNotFound)
+}

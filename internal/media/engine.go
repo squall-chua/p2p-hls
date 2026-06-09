@@ -124,3 +124,26 @@ func (e *Engine) isComplete(j *job) bool {
 	defer e.mu.Unlock()
 	return j.complete
 }
+
+// Thumbnail returns the poster JPEG bytes for contentID, generating it from the
+// source file on first request and caching it under {cacheDir}/{contentID}/thumb.jpg.
+func (e *Engine) Thumbnail(ctx context.Context, contentID string) ([]byte, error) {
+	out := library.ThumbPath(e.cacheDir, contentID)
+	if data, err := os.ReadFile(out); err == nil {
+		return data, nil
+	}
+	title, ok, err := e.store.Get(contentID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok || title.Height == 0 {
+		return nil, peer.ErrNotFound
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o700); err != nil {
+		return nil, err
+	}
+	if err := e.runner.Run(ctx, library.ThumbnailArgs(title.Path, out, title.DurationMS)); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(out)
+}
