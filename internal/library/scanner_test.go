@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/squall-chua/p2p-hls/internal/library"
 	"github.com/stretchr/testify/require"
@@ -64,4 +65,30 @@ func firstContentID(t *testing.T, s *library.Store) string {
 	require.NoError(t, err)
 	require.NotEmpty(t, all)
 	return all[0].ContentID
+}
+
+func TestWatchIndexesFilesAddedToSubfolders(t *testing.T) {
+	root := t.TempDir()
+
+	// Create the subfolder BEFORE the watcher starts so no Create(dir) event
+	// fires on root — only recursive watching of the subfolder itself will
+	// detect a file written into it.
+	sub := filepath.Join(root, "nested")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	defer store.Close()
+
+	sc := library.NewScanner(store, fakeProber{}, []string{root})
+	go func() { _ = sc.Watch(t.Context()) }()
+
+	time.Sleep(150 * time.Millisecond) // let the watcher finish setup
+
+	require.NoError(t, os.WriteFile(filepath.Join(sub, "Movie.mkv"), []byte("v"), 0o600))
+
+	require.Eventually(t, func() bool {
+		all, _ := store.All()
+		return len(all) == 1
+	}, 3*time.Second, 50*time.Millisecond)
 }

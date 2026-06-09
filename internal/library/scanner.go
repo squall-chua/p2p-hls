@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/fs"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -86,8 +87,17 @@ func (sc *Scanner) Watch(ctx context.Context) error {
 		return err
 	}
 	defer w.Close()
+
+	addTree := func(dir string) {
+		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+			if err == nil && d.IsDir() {
+				_ = w.Add(p)
+			}
+			return nil
+		})
+	}
 	for _, root := range sc.roots {
-		_ = w.Add(root)
+		addTree(root)
 	}
 
 	var mu sync.Mutex
@@ -105,9 +115,16 @@ func (sc *Scanner) Watch(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case _, ok := <-w.Events:
+		case ev, ok := <-w.Events:
 			if !ok {
 				return nil
+			}
+			// A newly-created subdirectory must itself become watched, or files
+			// later added inside it would go unnoticed.
+			if ev.Op&fsnotify.Create != 0 {
+				if info, serr := os.Stat(ev.Name); serr == nil && info.IsDir() {
+					addTree(ev.Name)
+				}
 			}
 			debounce()
 		case err, ok := <-w.Errors:
