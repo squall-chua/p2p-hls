@@ -11,3 +11,5 @@ webui/.nuxt/
 webui/.output/
 internal/bridge/dist/*
 !internal/bridge/dist/index.html
+host/
+viewer/
