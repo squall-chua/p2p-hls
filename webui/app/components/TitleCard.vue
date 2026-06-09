@@ -4,7 +4,10 @@ const props = defineProps<{
   durationMs?: number
   live?: boolean
   viewers?: number
+  thumbnail?: string
 }>()
+
+const failed = ref(false)
 
 const duration = computed(() => {
   const ms = props.durationMs ?? 0
@@ -24,7 +27,15 @@ const duration = computed(() => {
   >
     <!-- poster -->
     <div class="poster-sheen relative aspect-video overflow-hidden">
-      <div class="absolute inset-0 flex items-center justify-center">
+      <img
+        v-if="thumbnail && !failed"
+        :src="thumbnail"
+        alt=""
+        loading="lazy"
+        class="absolute inset-0 size-full object-cover"
+        @error="failed = true"
+      >
+      <div v-else class="absolute inset-0 flex items-center justify-center">
         <UIcon
           name="i-lucide-clapperboard"
           class="size-9 text-dimmed transition-transform duration-300 group-hover:scale-110"

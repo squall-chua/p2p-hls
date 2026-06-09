@@ -61,6 +61,7 @@ export function useBridge() {
     audience: () => api<any[]>('/api/party/audience'),
     currentParty: () => api<CurrentParty>('/api/party/current'),
     streamURL: (host: string, contentId: string) => `/s/${token}/${host}/${contentId}/index.m3u8`,
+    thumbURL: (host: string, contentId: string) => `/s/${token}/${host}/${contentId}/thumb.jpg`,
     eventsURL: () => `/api/events?token=${encodeURIComponent(token)}`,
     partyWSURL: () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
