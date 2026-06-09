@@ -21,14 +21,44 @@ var eligibleExts = map[string]bool{
 
 // Scanner indexes Shared folders into a Store.
 type Scanner struct {
-	store  *Store
-	prober Prober
-	roots  []string
+	store    *Store
+	prober   Prober
+	roots    []string
+	cacheDir string
+	thumber  Thumbnailer
 }
 
 // NewScanner constructs a Scanner over the given roots.
 func NewScanner(store *Store, prober Prober, roots []string) *Scanner {
 	return &Scanner{store: store, prober: prober, roots: roots}
+}
+
+// SetThumbnailer enables poster generation into cacheDir. Without it, the
+// Scanner indexes metadata only (no thumbnails).
+func (sc *Scanner) SetThumbnailer(cacheDir string, thumber Thumbnailer) *Scanner {
+	sc.cacheDir = cacheDir
+	sc.thumber = thumber
+	return sc
+}
+
+// ensureThumb generates {cacheDir}/{contentID}/thumb.jpg if missing. No-op when
+// thumbnails are disabled or the title has no video stream. Failures are logged,
+// never fatal — a missing thumbnail just falls back to the UI placeholder.
+func (sc *Scanner) ensureThumb(ctx context.Context, contentID, path string, durationMS int64, height int) {
+	if sc.thumber == nil || sc.cacheDir == "" || contentID == "" || height == 0 {
+		return
+	}
+	out := ThumbPath(sc.cacheDir, contentID)
+	if _, err := os.Stat(out); err == nil {
+		return // already present
+	}
+	if err := os.MkdirAll(filepath.Dir(out), 0o700); err != nil {
+		slog.Warn("thumbnail dir failed", "path", path, "err", err)
+		return
+	}
+	if err := sc.thumber.Thumbnail(ctx, path, out, durationMS); err != nil {
+		slog.Warn("thumbnail failed", "path", path, "err", err)
+	}
 }
 
 // ScanOnce walks every root and indexes new or changed eligible files.
@@ -56,9 +86,11 @@ func (sc *Scanner) indexFile(ctx context.Context, path string, d fs.DirEntry) {
 	if err != nil {
 		return
 	}
-	// mtime cache: skip if an existing entry matches path+size+mtime.
+	// mtime cache: skip re-indexing if an existing entry matches path+size+mtime,
+	// but still backfill a missing thumbnail for libraries indexed before this feature.
 	if existing, ok, _ := sc.store.GetByPath(path); ok &&
 		existing.Size == info.Size() && existing.ModUnix == info.ModTime().Unix() {
+		sc.ensureThumb(ctx, existing.ContentID, path, existing.DurationMS, existing.Height)
 		return
 	}
 	contentID, err := HashFile(path)
@@ -77,7 +109,9 @@ func (sc *Scanner) indexFile(ctx context.Context, path string, d fs.DirEntry) {
 	}
 	if err := sc.store.Upsert(title); err != nil {
 		slog.Warn("index upsert failed", "path", path, "err", err)
+		return
 	}
+	sc.ensureThumb(ctx, title.ContentID, path, title.DurationMS, title.Height)
 }
 
 // Watch re-scans (debounced) whenever a root changes, until ctx is cancelled.

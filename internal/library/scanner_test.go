@@ -67,6 +67,39 @@ func firstContentID(t *testing.T, s *library.Store) string {
 	return all[0].ContentID
 }
 
+// fakeThumber records calls and writes a stub JPEG so "already present" logic works.
+type fakeThumber struct{ calls int }
+
+func (f *fakeThumber) Thumbnail(_ context.Context, _, out string, _ int64) error {
+	f.calls++
+	return os.WriteFile(out, []byte("JPEG"), 0o600)
+}
+
+func TestScanGeneratesThumbnailOncePerFile(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "Movie.mkv"), []byte("video-bytes"), 0o600))
+
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	defer store.Close()
+
+	cache := t.TempDir()
+	thumb := &fakeThumber{}
+	sc := library.NewScanner(store, fakeProber{}, []string{root}).SetThumbnailer(cache, thumb)
+
+	require.NoError(t, sc.ScanOnce(context.Background()))
+
+	all, err := store.All()
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	require.FileExists(t, library.ThumbPath(cache, all[0].ContentID))
+	require.Equal(t, 1, thumb.calls)
+
+	// Second scan: file unchanged AND thumb already present -> no regeneration.
+	require.NoError(t, sc.ScanOnce(context.Background()))
+	require.Equal(t, 1, thumb.calls, "thumbnail must not be regenerated when present")
+}
+
 func TestWatchIndexesFilesAddedToSubfolders(t *testing.T) {
 	root := t.TempDir()
 
