@@ -66,6 +66,8 @@ message TitleMeta {
   bool party_live = 12;     // a live Watch Party exists for this Title on this Host
   int32 party_viewers = 13; // current Audience size (Viewers, excluding the Host)
   bytes thumbnail = 14;     // small poster JPEG (480px); empty when unavailable
+  string rel_dir = 15;      // Title's dir relative to its Shared-folder root; "" = root level
+  string root_label = 16;   // disambiguated basename of that Shared folder
 }
 
 message SubtitleTrack {

@@ -804,6 +804,8 @@ type TitleMeta struct {
 	PartyLive     bool                   `protobuf:"varint,12,opt,name=party_live,json=partyLive,proto3" json:"party_live,omitempty"`          // a live Watch Party exists for this Title on this Host
 	PartyViewers  int32                  `protobuf:"varint,13,opt,name=party_viewers,json=partyViewers,proto3" json:"party_viewers,omitempty"` // current Audience size (Viewers, excluding the Host)
 	Thumbnail     []byte                 `protobuf:"bytes,14,opt,name=thumbnail,proto3" json:"thumbnail,omitempty"`                            // small poster JPEG (480px); empty when unavailable
+	RelDir        string                 `protobuf:"bytes,15,opt,name=rel_dir,json=relDir,proto3" json:"rel_dir,omitempty"`                    // Title's dir relative to its Shared-folder root; "" = root level
+	RootLabel     string                 `protobuf:"bytes,16,opt,name=root_label,json=rootLabel,proto3" json:"root_label,omitempty"`           // disambiguated basename of that Shared folder
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -934,6 +936,20 @@ func (x *TitleMeta) GetThumbnail() []byte {
 		return x.Thumbnail
 	}
 	return nil
+}
+
+func (x *TitleMeta) GetRelDir() string {
+	if x != nil {
+		return x.RelDir
+	}
+	return ""
+}
+
+func (x *TitleMeta) GetRootLabel() string {
+	if x != nil {
+		return x.RootLabel
+	}
+	return ""
 }
 
 type SubtitleTrack struct {
@@ -2037,7 +2053,7 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x06titles\x18\x01 \x03(\v2\x12.peer.v1.TitleMetaR\x06titles\",\n" +
 	"\vGetMetadata\x12\x1d\n" +
 	"\n" +
-	"content_id\x18\x01 \x01(\tR\tcontentId\"\xde\x03\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\"\x96\x04\n" +
 	"\tTitleMeta\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x01 \x01(\tR\tcontentId\x12#\n" +
@@ -2058,7 +2074,10 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
 	"party_live\x18\f \x01(\bR\tpartyLive\x12#\n" +
 	"\rparty_viewers\x18\r \x01(\x05R\fpartyViewers\x12\x1c\n" +
-	"\tthumbnail\x18\x0e \x01(\fR\tthumbnail\"e\n" +
+	"\tthumbnail\x18\x0e \x01(\fR\tthumbnail\x12\x17\n" +
+	"\arel_dir\x18\x0f \x01(\tR\x06relDir\x12\x1d\n" +
+	"\n" +
+	"root_label\x18\x10 \x01(\tR\trootLabel\"e\n" +
 	"\rSubtitleTrack\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x14\n" +
