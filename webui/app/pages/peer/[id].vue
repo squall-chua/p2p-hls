@@ -7,6 +7,8 @@ interface TitleView {
   durationMs: number
   partyLive: boolean
   partyViewers: number
+  relDir: string
+  rootLabel: string
   thumbnail: string
 }
 
@@ -159,56 +161,41 @@ onMounted(load)
 
     <!-- catalog -->
     <template v-else>
-      <div
-        v-if="titles.length"
-        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-      >
-        <TitleCard
-          v-for="t in titles"
-          :key="t.contentId"
-          :title="t.displayTitle"
-          :duration-ms="t.durationMs"
-          :live="t.partyLive"
-          :viewers="t.partyViewers"
-          :thumbnail="t.thumbnail"
-        >
-          <template #actions>
-            <UButton
-              :to="`/watch/${id}/${t.contentId}`"
-              label="Watch"
-              icon="i-lucide-play"
-              color="neutral"
-              variant="soft"
-              size="sm"
-              class="flex-1 justify-center"
-            />
-            <UButton
-              v-if="t.partyLive"
-              label="Join"
-              icon="i-lucide-users"
-              color="primary"
-              variant="solid"
-              size="sm"
-              class="flex-1 justify-center"
-              :loading="joining === t.contentId"
-              @click="join(t.contentId)"
-            />
-          </template>
-        </TitleCard>
-      </div>
-
-      <div
-        v-else
-        class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-default px-6 py-14 text-center"
-      >
-        <div class="flex size-11 items-center justify-center rounded-full bg-muted text-dimmed">
-          <UIcon name="i-lucide-folder-open" class="size-5" />
-        </div>
-        <div class="space-y-1">
-          <p class="font-medium text-highlighted">No titles shared</p>
-          <p class="text-sm text-muted">This peer hasn't shared anything you can watch yet.</p>
-        </div>
-      </div>
+      <LibraryBrowser :titles="titles" base-label="Catalog">
+        <template #actions="{ title: t }">
+          <UButton
+            :to="`/watch/${id}/${t.contentId}`"
+            label="Watch"
+            icon="i-lucide-play"
+            color="neutral"
+            variant="soft"
+            size="sm"
+            class="flex-1 justify-center"
+          />
+          <UButton
+            v-if="t.partyLive"
+            label="Join"
+            icon="i-lucide-users"
+            color="primary"
+            variant="solid"
+            size="sm"
+            class="flex-1 justify-center"
+            :loading="joining === t.contentId"
+            @click="join(t.contentId)"
+          />
+        </template>
+        <template #empty>
+          <div class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-default px-6 py-14 text-center">
+            <div class="flex size-11 items-center justify-center rounded-full bg-muted text-dimmed">
+              <UIcon name="i-lucide-folder-open" class="size-5" />
+            </div>
+            <div class="space-y-1">
+              <p class="font-medium text-highlighted">No titles shared</p>
+              <p class="text-sm text-muted">This peer hasn't shared anything you can watch yet.</p>
+            </div>
+          </div>
+        </template>
+      </LibraryBrowser>
     </template>
   </div>
 </template>
