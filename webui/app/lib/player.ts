@@ -1,5 +1,5 @@
 import Hls from 'hls.js'
-import { hostMessageFor, planViewerActuation, type ViewerAction } from './actuator'
+import { hostMessageFor, planViewerActuation, parsePartyMessage } from './actuator'
 
 export type Role = 'solo' | 'host' | 'viewer'
 
@@ -11,6 +11,7 @@ export function attachPlayer(opts: {
   role: Role
   wsURL: string
   onDrift?: (driftMs: number) => void
+  onDanmaku?: (d: { text: string; sender?: string }) => void
 }) {
   let hls: Hls | null = null
   if (Hls.isSupported()) {
@@ -22,10 +23,13 @@ export function attachPlayer(opts: {
     opts.video.src = opts.src
   }
   const destroyHls = () => { hls?.destroy(); hls = null }
-  if (opts.role === 'solo') return { close: destroyHls }
+  if (opts.role === 'solo') return { close: destroyHls, sendDanmaku: (_text: string) => {} }
 
   const ws = new WebSocket(opts.wsURL)
   ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', role: opts.role }))
+  const sendDanmaku = (text: string) => {
+    if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: 'danmaku', text }))
+  }
 
   if (opts.role === 'host') {
     const send = (ev: 'play' | 'pause' | 'seek' | 'timeupdate') =>
@@ -34,6 +38,10 @@ export function attachPlayer(opts: {
     opts.video.addEventListener('pause', () => send('pause'))
     opts.video.addEventListener('seeked', () => send('seek'))
     opts.video.addEventListener('timeupdate', () => send('timeupdate'))
+    ws.onmessage = (m) => {
+      const msg = parsePartyMessage(m.data)
+      if (msg?.kind === 'danmaku') opts.onDanmaku?.(msg.danmaku)
+    }
   } else {
     // viewer: report position; apply server Actions
     const report = setInterval(() => {
@@ -41,7 +49,10 @@ export function attachPlayer(opts: {
         ws.send(JSON.stringify({ type: 'report', posMs: Math.round(opts.video.currentTime * 1000), playing: !opts.video.paused }))
     }, 500)
     ws.onmessage = (m) => {
-      const a = JSON.parse(m.data) as ViewerAction
+      const msg = parsePartyMessage(m.data)
+      if (!msg) return
+      if (msg.kind === 'danmaku') { opts.onDanmaku?.(msg.danmaku); return }
+      const a = msg.action
       const plan = planViewerActuation(a)
       if (plan.seekTo !== null) opts.video.currentTime = plan.seekTo
       opts.video.playbackRate = plan.rate
@@ -51,5 +62,5 @@ export function attachPlayer(opts: {
     }
     ws.addEventListener('close', () => clearInterval(report))
   }
-  return { close: () => { ws.close(); destroyHls() } }
+  return { close: () => { ws.close(); destroyHls() }, sendDanmaku }
 }
