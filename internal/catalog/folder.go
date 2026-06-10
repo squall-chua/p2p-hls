@@ -13,6 +13,9 @@ func buildRootLabels(roots []string) map[string]string {
 	labels := make(map[string]string, len(roots))
 	seen := make(map[string]int)
 	for _, root := range roots {
+		if _, already := labels[root]; already {
+			continue // ignore duplicate root paths
+		}
 		base := filepath.Base(filepath.Clean(root))
 		seen[base]++
 		if seen[base] == 1 {

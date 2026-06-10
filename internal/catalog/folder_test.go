@@ -42,3 +42,11 @@ func TestFolderForNoMatch(t *testing.T) {
 	require.Equal(t, "", rl)
 	require.Equal(t, "", rd)
 }
+
+func TestFolderForRejectsStringPrefixFalseMatch(t *testing.T) {
+	roots := []string{"/a/me", "/a/media"}
+	labels := buildRootLabels(roots)
+	rl, rd := folderFor("/a/media/x.mkv", roots, labels)
+	require.Equal(t, "media", rl)
+	require.Equal(t, "", rd)
+}
