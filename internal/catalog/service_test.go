@@ -26,7 +26,7 @@ func newServiceWithTitle(t *testing.T) (*catalog.Service, *catalog.Policy, *cata
 	policy := catalog.NewPolicy(catalog.VisibilityRestricted)
 	reqs := catalog.NewRequests()
 	cache := t.TempDir()
-	return catalog.NewService(store, policy, reqs, cache), policy, reqs, cache
+	return catalog.NewService(store, policy, reqs, cache, nil), policy, reqs, cache
 }
 
 func writeThumb(t *testing.T, cache, cid string, b []byte) {
@@ -119,4 +119,22 @@ func TestLibraryDoesNotEmbedThumbnail(t *testing.T) {
 	titles, err := svc.Library()
 	require.NoError(t, err)
 	require.Empty(t, titles[0].GetThumbnail(), "owner library uses the local stream URL, not embedded bytes")
+}
+
+func TestLibraryReportsFolderForTitle(t *testing.T) {
+	root := t.TempDir()
+	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
+	require.NoError(t, err)
+	t.Cleanup(func() { store.Close() })
+	require.NoError(t, store.Upsert(library.Title{
+		ContentID:    "cid-1",
+		DisplayTitle: "Movie",
+		Path:         filepath.Join(root, "Movies", "Action", "x.mkv"),
+	}))
+	svc := catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityRestricted), catalog.NewRequests(), t.TempDir(), []string{root})
+
+	titles, err := svc.Library()
+	require.NoError(t, err)
+	require.Equal(t, "Movies/Action", titles[0].GetRelDir())
+	require.Equal(t, filepath.Base(root), titles[0].GetRootLabel())
 }

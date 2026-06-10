@@ -20,19 +20,25 @@ type PartyProvider interface {
 // Service answers browse RPCs from Viewers, enforcing the access Policy.
 // It implements peer.RequestHandler.
 type Service struct {
-	store    *library.Store
-	policy   *Policy
-	reqs     *Requests
-	party    PartyProvider
-	cacheDir string
+	store      *library.Store
+	policy     *Policy
+	reqs       *Requests
+	party      PartyProvider
+	cacheDir   string
+	roots      []string
+	rootLabels map[string]string
 }
 
 // SetPartyProvider installs the source of live-party annotations for Browse.
 func (s *Service) SetPartyProvider(p PartyProvider) { s.party = p }
 
-// NewService wires the Store, Policy, Requests, and the cache dir thumbnails live under.
-func NewService(store *library.Store, policy *Policy, reqs *Requests, cacheDir string) *Service {
-	return &Service{store: store, policy: policy, reqs: reqs, cacheDir: cacheDir}
+// NewService wires the Store, Policy, Requests, the cache dir thumbnails live
+// under, and the Shared folder roots (used to derive each Title's Folder).
+func NewService(store *library.Store, policy *Policy, reqs *Requests, cacheDir string, roots []string) *Service {
+	return &Service{
+		store: store, policy: policy, reqs: reqs, cacheDir: cacheDir,
+		roots: roots, rootLabels: buildRootLabels(roots),
+	}
 }
 
 // Browse returns the Catalog visible to remote, or peer.ErrDenied.
@@ -117,6 +123,7 @@ func (s *Service) toMeta(t library.Title, includeThumb bool) *peerv1.TitleMeta {
 		SizeBytes:     t.Size,
 		HlsCompatible: t.HLSCompatible,
 	}
+	m.RootLabel, m.RelDir = folderFor(t.Path, s.roots, s.rootLabels)
 	for _, sub := range t.Subtitles {
 		m.Subtitles = append(m.Subtitles, &peerv1.SubtitleTrack{
 			Id: sub.ID, Language: sub.Language, Label: sub.Label, Kind: sub.Kind,
