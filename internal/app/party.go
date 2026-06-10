@@ -359,6 +359,31 @@ func (pc *partyCoordinator) OnPartyDanmaku(remote identity.NodeID, d *peerv1.Par
 	}
 }
 
+// handlePlayerDanmaku routes a Danmaku the local browser posted. A Host broadcasts it
+// to the Audience as itself; a Viewer forwards it to its Host (which re-broadcasts).
+func (pc *partyCoordinator) handlePlayerDanmaku(text string) {
+	pc.mu.Lock()
+	h := pc.host
+	v, vHost, send := pc.viewer, pc.viewerHost, pc.send
+	pid := ""
+	if pc.swarm != nil {
+		pid = pc.swarm.partyID
+	}
+	pc.mu.Unlock()
+	if h != nil {
+		pc.broadcastDanmaku(h, pc.self, string(pc.self), text)
+		return
+	}
+	if v == nil || vHost == "" || send == nil {
+		return
+	}
+	t := party.CapText(text)
+	if t == "" {
+		return
+	}
+	_ = send.sendTo(vHost, &peerv1.Envelope{Body: &peerv1.Envelope_PartyDanmaku{PartyDanmaku: &peerv1.PartyDanmaku{PartyId: pid, Text: t}}})
+}
+
 // --- heartbeat ---
 
 func (pc *partyCoordinator) heartbeat(h *party.Host, stop chan struct{}) {
@@ -520,6 +545,7 @@ type playerMsg struct {
 	Role    string `json:"role,omitempty"`
 	PosMS   int64  `json:"posMs"`
 	Playing bool   `json:"playing"`
+	Text    string `json:"text,omitempty"`
 }
 
 // serveWS runs the loopback player loop. Host role: read player events into the
@@ -534,11 +560,40 @@ func (pc *partyCoordinator) serveWS(conn *websocket.Conn) {
 	if json.Unmarshal(raw, &hello) != nil || hello.Type != "hello" {
 		return
 	}
+
+	// Single writer goroutine: the only place conn is written, so the Action ticker
+	// and the async Danmaku sink never race on the socket.
+	out := make(chan []byte, 32)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case b := <-out:
+				if conn.WriteMessage(websocket.TextMessage, b) != nil {
+					return
+				}
+			}
+		}
+	}()
+	pc.mu.Lock()
+	pc.out = out
+	pc.mu.Unlock()
+	defer func() {
+		pc.mu.Lock()
+		if pc.out == out {
+			pc.out = nil
+		}
+		pc.mu.Unlock()
+		close(done)
+	}()
+
 	if hello.Role == "host" {
 		pc.serveHostWS(conn)
 		return
 	}
-	pc.serveViewerWS(conn)
+	pc.serveViewerWS(conn, out)
 }
 
 func (pc *partyCoordinator) serveHostWS(conn *websocket.Conn) {
@@ -549,6 +604,10 @@ func (pc *partyCoordinator) serveHostWS(conn *websocket.Conn) {
 		}
 		var m playerMsg
 		if json.Unmarshal(raw, &m) != nil {
+			continue
+		}
+		if m.Type == "danmaku" {
+			pc.handlePlayerDanmaku(m.Text)
 			continue
 		}
 		pc.mu.Lock()
@@ -571,7 +630,7 @@ func (pc *partyCoordinator) serveHostWS(conn *websocket.Conn) {
 	}
 }
 
-func (pc *partyCoordinator) serveViewerWS(conn *websocket.Conn) {
+func (pc *partyCoordinator) serveViewerWS(conn *websocket.Conn, out chan []byte) {
 	reports := make(chan playerMsg, 8)
 	go func() {
 		for {
@@ -582,6 +641,10 @@ func (pc *partyCoordinator) serveViewerWS(conn *websocket.Conn) {
 			}
 			var m playerMsg
 			if json.Unmarshal(raw, &m) == nil {
+				if m.Type == "danmaku" {
+					pc.handlePlayerDanmaku(m.Text)
+					continue
+				}
 				select {
 				case reports <- m:
 				default:
@@ -617,8 +680,9 @@ func (pc *partyCoordinator) serveViewerWS(conn *websocket.Conn) {
 		case <-t.C:
 			act := pc.viewerDecide(last.PosMS, last.Playing, pc.clock.Now())
 			b, _ := json.Marshal(act)
-			if conn.WriteMessage(websocket.TextMessage, b) != nil {
-				return
+			select {
+			case out <- b:
+			default:
 			}
 		}
 	}

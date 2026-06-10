@@ -281,6 +281,34 @@ func TestHostRateLimitsDanmaku(t *testing.T) {
 	require.Len(t, cs.danmakusTo("alice"), 3) // burst of 3, rest throttled
 }
 
+func TestHandlePlayerDanmakuHostBroadcasts(t *testing.T) {
+	cs := &captureSender{}
+	pc := newPartyCoordinator(cs, identity.NodeID("host"), &stepClock{t: time.Unix(1_700_000_000, 0)}, party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.close()
+	pc.OnJoinParty("alice", "cid")
+
+	pc.handlePlayerDanmaku("hey")
+
+	ds := cs.danmakusTo("alice")
+	require.Len(t, ds, 1)
+	require.Equal(t, "hey", ds[0].GetText())
+	require.Equal(t, "host", ds[0].GetSenderNodeId()) // host originates as itself
+}
+
+func TestHandlePlayerDanmakuViewerSendsToHostOnly(t *testing.T) {
+	cs := &captureSender{}
+	pc := newPartyCoordinator(cs, identity.NodeID("self"), party.RealClock(), party.DefaultConfig())
+	pc.beginViewer(identity.NodeID("host1"))
+
+	pc.handlePlayerDanmaku("hi there")
+
+	all := cs.danmakusTo("host1")
+	require.Len(t, all, 1)
+	require.Equal(t, "hi there", all[0].GetText())
+	require.Empty(t, all[0].GetSenderNodeId()) // viewer leaves identity for the Host to stamp
+}
+
 func TestViewerPushesDanmakuFromHostOnly(t *testing.T) {
 	pc := newPartyCoordinator(nil, identity.NodeID("self"), party.RealClock(), party.DefaultConfig())
 	pc.beginViewer(identity.NodeID("host1"))
