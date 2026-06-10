@@ -49,8 +49,12 @@ The content-hash identifier of a Title's source file. Stable across Nodes — th
 _Avoid_: hash, file ID.
 
 **Shared folder**:
-A directory a User configures for the Node to scan; every eligible file found becomes a Title in the Library.
+A directory a User configures for the Node to scan; every eligible file found becomes a Title in the Library. The scan root, not necessarily a top-level Folder (see Folder).
 _Avoid_: watch folder, source dir.
+
+**Folder**:
+A navigable directory node in the hierarchical view of a Library or Catalog, derived from Titles' on-disk locations. With a single Shared folder, the top-level Folders are its immediate subdirectories; with several Shared folders, each Shared folder is itself a top-level Folder. A Folder is a presentation grouping of Titles, not a stored entity.
+_Avoid_: directory, path, node.
 
 ### Network
 
