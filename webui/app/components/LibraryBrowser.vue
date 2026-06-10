@@ -51,13 +51,14 @@ function thumbOf(t: BrowserTitle): string {
     <nav class="mb-4 flex flex-wrap items-center gap-0.5 text-sm">
       <template v-for="(crumb, i) in crumbs" :key="i">
         <button
+          v-if="i < crumbs.length - 1"
           type="button"
-          class="rounded px-1.5 py-0.5 transition"
-          :class="i === crumbs.length - 1 ? 'font-semibold text-highlighted' : 'text-muted hover:text-highlighted'"
+          class="rounded px-1.5 py-0.5 text-muted transition hover:text-highlighted"
           @click="goTo(i)"
         >
           {{ crumb }}
         </button>
+        <span v-else class="rounded px-1.5 py-0.5 font-semibold text-highlighted">{{ crumb }}</span>
         <UIcon v-if="i < crumbs.length - 1" name="i-lucide-chevron-right" class="size-3.5 text-dimmed" />
       </template>
     </nav>
@@ -77,7 +78,7 @@ function thumbOf(t: BrowserTitle): string {
         <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
           <UIcon name="i-lucide-folder" class="size-5 transition-transform duration-300 group-hover:scale-110" />
         </div>
-        <span class="truncate font-semibold text-highlighted">{{ folder }}</span>
+        <span class="truncate font-semibold text-highlighted" :title="folder">{{ folder }}</span>
       </button>
 
       <!-- then titles -->
