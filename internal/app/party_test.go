@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -190,4 +192,103 @@ func TestCoordinatorViewerIngestsState(t *testing.T) {
 	act := pc.viewerDecide(0, false, time.Now())
 	require.True(t, act.Seek)
 	require.Equal(t, int64(7_000), act.SeekMS)
+}
+
+// stepClock is a frozen, manually-advanced clock for deterministic rate-gate tests.
+type stepClock struct{ t time.Time }
+
+func (c *stepClock) Now() time.Time          { return c.t }
+func (c *stepClock) advance(d time.Duration) { c.t = c.t.Add(d) }
+
+// captureSender records every Envelope sent, per destination node.
+type captureSender struct {
+	mu   sync.Mutex
+	sent []capturedEnv
+}
+type capturedEnv struct {
+	to  identity.NodeID
+	env *peerv1.Envelope
+}
+
+func (c *captureSender) sendTo(to identity.NodeID, env *peerv1.Envelope) error {
+	c.mu.Lock()
+	c.sent = append(c.sent, capturedEnv{to, env})
+	c.mu.Unlock()
+	return nil
+}
+func (c *captureSender) measureRTT(context.Context, identity.NodeID) (time.Duration, error) {
+	return 0, nil
+}
+
+// danmakusTo counts PartyDanmaku envelopes addressed to `node`.
+func (c *captureSender) danmakusTo(node identity.NodeID) []*peerv1.PartyDanmaku {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out []*peerv1.PartyDanmaku
+	for _, s := range c.sent {
+		if s.to == node {
+			if d := s.env.GetPartyDanmaku(); d != nil {
+				out = append(out, d)
+			}
+		}
+	}
+	return out
+}
+
+func TestHostBroadcastsDanmakuToAllMembers(t *testing.T) {
+	cs := &captureSender{}
+	pc := newPartyCoordinator(cs, identity.NodeID("host"), &stepClock{t: time.Unix(1_700_000_000, 0)}, party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.close()
+	pc.OnJoinParty("alice", "cid")
+	pc.OnJoinParty("bob", "cid")
+	pc.out = make(chan []byte, 4) // local sink so the host sees its own
+
+	pc.OnPartyDanmaku("alice", &peerv1.PartyDanmaku{Text: "  hello  "})
+
+	for _, who := range []identity.NodeID{"alice", "bob"} {
+		ds := cs.danmakusTo(who)
+		require.Len(t, ds, 1)
+		require.Equal(t, "hello", ds[0].GetText())         // trimmed
+		require.Equal(t, "alice", ds[0].GetSenderNodeId()) // Host-stamped identity
+	}
+	require.NotEmpty(t, pc.out) // host's own browser was pushed to
+}
+
+func TestHostDropsDanmakuFromNonAudienceSender(t *testing.T) {
+	cs := &captureSender{}
+	pc := newPartyCoordinator(cs, identity.NodeID("host"), &stepClock{t: time.Unix(1_700_000_000, 0)}, party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.close()
+	pc.OnJoinParty("alice", "cid")
+
+	pc.OnPartyDanmaku("mallory", &peerv1.PartyDanmaku{Text: "spoof"}) // not in Audience
+
+	require.Empty(t, cs.danmakusTo("alice"))
+}
+
+func TestHostRateLimitsDanmaku(t *testing.T) {
+	cs := &captureSender{}
+	clk := &stepClock{t: time.Unix(1_700_000_000, 0)} // frozen => no refill
+	pc := newPartyCoordinator(cs, identity.NodeID("host"), clk, party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.close()
+	pc.OnJoinParty("alice", "cid")
+
+	for i := 0; i < 5; i++ {
+		pc.OnPartyDanmaku("alice", &peerv1.PartyDanmaku{Text: "x"})
+	}
+	require.Len(t, cs.danmakusTo("alice"), 3) // burst of 3, rest throttled
+}
+
+func TestViewerPushesDanmakuFromHostOnly(t *testing.T) {
+	pc := newPartyCoordinator(nil, identity.NodeID("self"), party.RealClock(), party.DefaultConfig())
+	pc.beginViewer(identity.NodeID("host1"))
+	pc.out = make(chan []byte, 4)
+
+	pc.OnPartyDanmaku("host1", &peerv1.PartyDanmaku{Text: "hi", SenderDisplay: "host1"})
+	require.Len(t, pc.out, 1)
+
+	pc.OnPartyDanmaku("stranger", &peerv1.PartyDanmaku{Text: "no"}) // not our host
+	require.Len(t, pc.out, 1)                                       // unchanged
 }

@@ -48,10 +48,12 @@ type partyCoordinator struct {
 	swarm        *swarmSession
 	lastAudience []*peerv1.AudienceMember
 	stopHB       chan struct{}
+	gate         *party.DanmakuGate
+	out          chan []byte // active /party browser sink; nil when no watch page open
 }
 
 func newPartyCoordinator(s sender, self identity.NodeID, clk party.Clock, cfg party.Config) *partyCoordinator {
-	return &partyCoordinator{send: s, self: self, clock: clk, cfg: cfg}
+	return &partyCoordinator{send: s, self: self, clock: clk, cfg: cfg, gate: party.NewDanmakuGate(cfg)}
 }
 
 // --- entry points ---
@@ -285,6 +287,75 @@ func (pc *partyCoordinator) OnPartyEnded(remote identity.NodeID, _ *peerv1.Party
 	}
 	if ended && cb != nil {
 		cb()
+	}
+}
+
+// danmakuPush is the Node->browser message pushed over the /party WS on receipt.
+type danmakuPush struct {
+	Type   string `json:"type"`
+	Text   string `json:"text"`
+	Sender string `json:"sender,omitempty"`
+}
+
+// pushDanmaku writes a received Danmaku to the local browser sink, if a watch page
+// is connected. Non-blocking: drops if the writer is backed up.
+func (pc *partyCoordinator) pushDanmaku(text, sender string) {
+	b, _ := json.Marshal(danmakuPush{Type: "danmaku", Text: text, Sender: sender})
+	pc.mu.Lock()
+	out := pc.out
+	pc.mu.Unlock()
+	if out == nil {
+		return
+	}
+	select {
+	case out <- b:
+	default:
+	}
+}
+
+// broadcastDanmaku is the single fan-out point: cap the text, then send it to every
+// Audience member and push it to the local browser. No-op if the text caps to empty.
+func (pc *partyCoordinator) broadcastDanmaku(h *party.Host, senderNode identity.NodeID, senderDisplay, text string) {
+	text = party.CapText(text)
+	if text == "" {
+		return
+	}
+	env := &peerv1.Envelope{Body: &peerv1.Envelope_PartyDanmaku{PartyDanmaku: &peerv1.PartyDanmaku{
+		PartyId:       h.PartyID(),
+		SenderNodeId:  string(senderNode),
+		SenderDisplay: senderDisplay,
+		Text:          text,
+	}}}
+	if pc.send != nil {
+		for _, m := range h.Members() {
+			_ = pc.send.sendTo(m.NodeID, env)
+		}
+	}
+	pc.pushDanmaku(text, senderDisplay)
+}
+
+// OnPartyDanmaku (peer.PartyHandler): Host validates + rate-limits + fans out; a
+// Viewer pushes a Danmaku from its Host to the local browser, ignoring all others.
+func (pc *partyCoordinator) OnPartyDanmaku(remote identity.NodeID, d *peerv1.PartyDanmaku) {
+	pc.mu.Lock()
+	h := pc.host
+	v, vh := pc.viewer, pc.viewerHost
+	pc.mu.Unlock()
+	if h != nil {
+		name, ok := h.Member(remote)
+		if !ok {
+			return // anti-spoof: not in the Audience
+		}
+		if !pc.gate.Allow(remote, pc.clock.Now()) {
+			return // rate-limited
+		}
+		pc.broadcastDanmaku(h, remote, name, d.GetText())
+		return
+	}
+	if v != nil && remote == vh {
+		if text := party.CapText(d.GetText()); text != "" {
+			pc.pushDanmaku(text, d.GetSenderDisplay())
+		}
 	}
 }
 

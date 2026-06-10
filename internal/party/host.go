@@ -148,6 +148,14 @@ func (h *Host) Members() []Member {
 	return out
 }
 
+// Member returns a Viewer's stored display name and whether it is in the Audience.
+func (h *Host) Member(node identity.NodeID) (string, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	name, ok := h.audience[node]
+	return name, ok
+}
+
 // ViewerCount is the current Audience size.
 func (h *Host) ViewerCount() int {
 	h.mu.Lock()

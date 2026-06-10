@@ -33,6 +33,7 @@ message Envelope {
     PartyEnded party_ended = 23;
     SwarmHave swarm_have = 24;
     GetSwarmSegment get_swarm_segment = 25;
+    PartyDanmaku party_danmaku = 26;
   }
 }
 
@@ -185,4 +186,13 @@ message GetSwarmSegment {
   string party_id = 1;
   string rendition = 2;
   string seg_name = 3;
+}
+
+// PartyDanmaku carries one Danmaku. A Viewer->Host send fills only `text`; the Host
+// overwrites sender_* with the true remote identity before fanning out.
+message PartyDanmaku {
+  string party_id       = 1;
+  string sender_node_id = 2; // set by the Host on fan-out; ignored on inbound
+  string sender_display = 3; // set by the Host on fan-out
+  string text           = 4; // sender-provided, length-capped (runes) on the Host
 }

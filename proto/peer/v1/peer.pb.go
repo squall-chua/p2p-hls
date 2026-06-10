@@ -110,6 +110,7 @@ type Envelope struct {
 	//	*Envelope_PartyEnded
 	//	*Envelope_SwarmHave
 	//	*Envelope_GetSwarmSegment
+	//	*Envelope_PartyDanmaku
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -375,6 +376,15 @@ func (x *Envelope) GetGetSwarmSegment() *GetSwarmSegment {
 	return nil
 }
 
+func (x *Envelope) GetPartyDanmaku() *PartyDanmaku {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_PartyDanmaku); ok {
+			return x.PartyDanmaku
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -475,6 +485,10 @@ type Envelope_GetSwarmSegment struct {
 	GetSwarmSegment *GetSwarmSegment `protobuf:"bytes,25,opt,name=get_swarm_segment,json=getSwarmSegment,proto3,oneof"`
 }
 
+type Envelope_PartyDanmaku struct {
+	PartyDanmaku *PartyDanmaku `protobuf:"bytes,26,opt,name=party_danmaku,json=partyDanmaku,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
@@ -522,6 +536,8 @@ func (*Envelope_PartyEnded) isEnvelope_Body() {}
 func (*Envelope_SwarmHave) isEnvelope_Body() {}
 
 func (*Envelope_GetSwarmSegment) isEnvelope_Body() {}
+
+func (*Envelope_PartyDanmaku) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -1999,11 +2015,81 @@ func (x *GetSwarmSegment) GetSegName() string {
 	return ""
 }
 
+// PartyDanmaku carries one Danmaku. A Viewer->Host send fills only `text`; the Host
+// overwrites sender_* with the true remote identity before fanning out.
+type PartyDanmaku struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartyId       string                 `protobuf:"bytes,1,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	SenderNodeId  string                 `protobuf:"bytes,2,opt,name=sender_node_id,json=senderNodeId,proto3" json:"sender_node_id,omitempty"`  // set by the Host on fan-out; ignored on inbound
+	SenderDisplay string                 `protobuf:"bytes,3,opt,name=sender_display,json=senderDisplay,proto3" json:"sender_display,omitempty"` // set by the Host on fan-out
+	Text          string                 `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`                                        // sender-provided, length-capped (runes) on the Host
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PartyDanmaku) Reset() {
+	*x = PartyDanmaku{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PartyDanmaku) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PartyDanmaku) ProtoMessage() {}
+
+func (x *PartyDanmaku) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PartyDanmaku.ProtoReflect.Descriptor instead.
+func (*PartyDanmaku) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *PartyDanmaku) GetPartyId() string {
+	if x != nil {
+		return x.PartyId
+	}
+	return ""
+}
+
+func (x *PartyDanmaku) GetSenderNodeId() string {
+	if x != nil {
+		return x.SenderNodeId
+	}
+	return ""
+}
+
+func (x *PartyDanmaku) GetSenderDisplay() string {
+	if x != nil {
+		return x.SenderDisplay
+	}
+	return ""
+}
+
+func (x *PartyDanmaku) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xad\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xeb\n" +
 	"\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
@@ -2039,7 +2125,8 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"partyEnded\x123\n" +
 	"\n" +
 	"swarm_have\x18\x18 \x01(\v2\x12.peer.v1.SwarmHaveH\x00R\tswarmHave\x12F\n" +
-	"\x11get_swarm_segment\x18\x19 \x01(\v2\x18.peer.v1.GetSwarmSegmentH\x00R\x0fgetSwarmSegmentB\x06\n" +
+	"\x11get_swarm_segment\x18\x19 \x01(\v2\x18.peer.v1.GetSwarmSegmentH\x00R\x0fgetSwarmSegment\x12<\n" +
+	"\rparty_danmaku\x18\x1a \x01(\v2\x15.peer.v1.PartyDanmakuH\x00R\fpartyDanmakuB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -2158,7 +2245,12 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\x0fGetSwarmSegment\x12\x19\n" +
 	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12\x1c\n" +
 	"\trendition\x18\x02 \x01(\tR\trendition\x12\x19\n" +
-	"\bseg_name\x18\x03 \x01(\tR\asegNameB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"\bseg_name\x18\x03 \x01(\tR\asegName\"\x8a\x01\n" +
+	"\fPartyDanmaku\x12\x19\n" +
+	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12$\n" +
+	"\x0esender_node_id\x18\x02 \x01(\tR\fsenderNodeId\x12%\n" +
+	"\x0esender_display\x18\x03 \x01(\tR\rsenderDisplay\x12\x12\n" +
+	"\x04text\x18\x04 \x01(\tR\x04textB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -2173,7 +2265,7 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(Error_Status)(0),       // 0: peer.v1.Error.Status
 	(*Envelope)(nil),        // 1: peer.v1.Envelope
@@ -2203,6 +2295,7 @@ var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(*PartyEnded)(nil),      // 25: peer.v1.PartyEnded
 	(*SwarmHave)(nil),       // 26: peer.v1.SwarmHave
 	(*GetSwarmSegment)(nil), // 27: peer.v1.GetSwarmSegment
+	(*PartyDanmaku)(nil),    // 28: peer.v1.PartyDanmaku
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
@@ -2229,17 +2322,18 @@ var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	25, // 21: peer.v1.Envelope.party_ended:type_name -> peer.v1.PartyEnded
 	26, // 22: peer.v1.Envelope.swarm_have:type_name -> peer.v1.SwarmHave
 	27, // 23: peer.v1.Envelope.get_swarm_segment:type_name -> peer.v1.GetSwarmSegment
-	8,  // 24: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
-	9,  // 25: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
-	0,  // 26: peer.v1.Error.status:type_name -> peer.v1.Error.Status
-	21, // 27: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
-	22, // 28: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
-	23, // 29: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
-	30, // [30:30] is the sub-list for method output_type
-	30, // [30:30] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	28, // 24: peer.v1.Envelope.party_danmaku:type_name -> peer.v1.PartyDanmaku
+	8,  // 25: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 26: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 27: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	21, // 28: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
+	22, // 29: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
+	23, // 30: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -2272,6 +2366,7 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_PartyEnded)(nil),
 		(*Envelope_SwarmHave)(nil),
 		(*Envelope_GetSwarmSegment)(nil),
+		(*Envelope_PartyDanmaku)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2279,7 +2374,7 @@ func file_proto_peer_v1_peer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

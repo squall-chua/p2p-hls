@@ -21,6 +21,7 @@ type PartyHandler interface {
 	OnPartyAudience(remote identity.NodeID, a *peerv1.PartyAudience)
 	OnPartyInvite(remote identity.NodeID, inv *peerv1.PartyInvite)
 	OnPartyEnded(remote identity.NodeID, e *peerv1.PartyEnded)
+	OnPartyDanmaku(remote identity.NodeID, d *peerv1.PartyDanmaku)
 }
 
 // SetPartyHandler installs the handler for inbound party messages.

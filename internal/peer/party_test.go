@@ -12,6 +12,7 @@ import (
 
 type fakePartyHandler struct {
 	states    chan *peerv1.PartyState
+	danmaku   chan *peerv1.PartyDanmaku
 	joinedCID string
 }
 
@@ -24,6 +25,11 @@ func (f *fakePartyHandler) OnPartyState(_ identity.NodeID, s *peerv1.PartyState)
 func (f *fakePartyHandler) OnPartyAudience(identity.NodeID, *peerv1.PartyAudience) {}
 func (f *fakePartyHandler) OnPartyInvite(identity.NodeID, *peerv1.PartyInvite)     {}
 func (f *fakePartyHandler) OnPartyEnded(identity.NodeID, *peerv1.PartyEnded)       {}
+func (f *fakePartyHandler) OnPartyDanmaku(_ identity.NodeID, d *peerv1.PartyDanmaku) {
+	if f.danmaku != nil {
+		f.danmaku <- d
+	}
+}
 
 func TestPartyStateDeliveredToHandler(t *testing.T) {
 	a, b, _ := connectPair(t) // (viewer, host, hostHandler); b is the host session
@@ -41,6 +47,23 @@ func TestPartyStateDeliveredToHandler(t *testing.T) {
 		require.Equal(t, uint64(7), s.GetSeq())
 	case <-ctx.Done():
 		t.Fatal("PartyState not delivered")
+	}
+}
+
+func TestPartyDanmakuDeliveredToHandler(t *testing.T) {
+	a, b, _ := connectPair(t) // a=viewer, b=host session
+	h := &fakePartyHandler{danmaku: make(chan *peerv1.PartyDanmaku, 1)}
+	b.SetPartyHandler(h)
+
+	require.NoError(t, a.SendControl(&peerv1.Envelope{
+		Body: &peerv1.Envelope_PartyDanmaku{PartyDanmaku: &peerv1.PartyDanmaku{PartyId: "p1", Text: "lol"}},
+	}))
+
+	select {
+	case d := <-h.danmaku:
+		require.Equal(t, "lol", d.GetText())
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnPartyDanmaku not invoked")
 	}
 }
 

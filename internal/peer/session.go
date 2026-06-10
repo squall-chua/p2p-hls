@@ -238,6 +238,10 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			if h := s.currentPartyHandler(); h != nil {
 				h.OnPartyEnded(s.remote, body.PartyEnded)
 			}
+		case *peerv1.Envelope_PartyDanmaku:
+			if h := s.currentPartyHandler(); h != nil {
+				h.OnPartyDanmaku(s.remote, body.PartyDanmaku)
+			}
 		case *peerv1.Envelope_SwarmHave:
 			if h := s.currentSwarmHandler(); h != nil {
 				h.OnSwarmHave(s.remote, body.SwarmHave)
