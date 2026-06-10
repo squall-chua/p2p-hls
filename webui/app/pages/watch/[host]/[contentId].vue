@@ -3,6 +3,7 @@ import { useBridge } from '~/composables/useBridge'
 import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
 import { formatDrift } from '~/lib/actuator'
+import { MAX_DANMAKU_LEN } from '~/lib/danmaku'
 
 definePageMeta({ layout: 'theater' })
 
@@ -18,11 +19,25 @@ const role = ref<Role>('solo')
 const video = ref<HTMLVideoElement>()
 const drift = ref(0)
 const members = ref<any[]>([])
-let handle: { close: () => void } | null = null
+let handle: ReturnType<typeof attachPlayer> | null = null
 let live: { start: () => void; stop: () => void } | null = null
 
 async function refetchAudience() {
   try { members.value = await bridge.audience() } catch { /* ignore */ }
+}
+
+const overlay = ref<{ add: (d: { text: string; sender?: string }) => void }>()
+const draft = ref('')
+let lastSent = 0
+
+function sendDanmaku() {
+  const text = draft.value.trim()
+  if (!text) return
+  const now = performance.now()
+  if (now - lastSent < 1000) return // client cooldown ~1/s (>= host bucket refill)
+  lastSent = now
+  handle?.sendDanmaku(text)
+  draft.value = ''
 }
 
 onMounted(async () => {
@@ -34,6 +49,7 @@ onMounted(async () => {
     role: role.value,
     wsURL: bridge.partyWSURL(),
     onDrift: (d) => (drift.value = d),
+    onDanmaku: (d) => overlay.value?.add(d),
   })
   if (role.value !== 'solo') {
     refetchAudience()
@@ -83,6 +99,8 @@ const roleBadge = computed(() => ({
           :controls="role !== 'viewer'"
           class="h-full w-full bg-black object-contain"
         />
+
+        <DanmakuOverlay ref="overlay" />
 
         <!-- chrome overlaid on the player; revealed on hover (top bar removed) -->
         <div
@@ -143,6 +161,27 @@ const roleBadge = computed(() => ({
               @click="end"
             />
           </div>
+        </div>
+
+        <!-- danmaku input: slim bottom-center pill, revealed with the hover chrome -->
+        <div
+          v-if="role !== 'solo'"
+          class="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+        >
+          <form
+            class="pointer-events-auto flex w-[min(70%,32rem)] items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur"
+            @submit.prevent="sendDanmaku"
+          >
+            <UIcon name="i-lucide-message-circle" class="size-4 shrink-0 text-white/70" />
+            <input
+              v-model="draft"
+              :maxlength="MAX_DANMAKU_LEN"
+              placeholder="Send a danmaku…"
+              aria-label="Send a danmaku"
+              class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
+            />
+            <button type="submit" class="shrink-0 text-sm font-medium text-primary">Send</button>
+          </form>
         </div>
       </div>
     </main>
