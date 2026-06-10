@@ -23,26 +23,30 @@ func RealClock() Clock { return realClock{} }
 
 // Config holds the sync tunables (see ADR 0004 for the chosen defaults).
 type Config struct {
-	HeartbeatInterval time.Duration // how often the Host emits PartyState
-	SeekThresholdMS   int64         // |drift| above this => hard seek
-	DeadbandMS        int64         // |drift| below this => no correction
-	MinRate, MaxRate  float64       // playbackRate clamp for nudging
-	Kp                float64       // proportional gain (per second of drift)
-	MaxOWDMS          int64         // cap on the one-way-delay estimate (spike guard)
-	SeekDebounce      time.Duration // host scrub settle window before committing a seek
+	HeartbeatInterval   time.Duration // how often the Host emits PartyState
+	SeekThresholdMS     int64         // |drift| above this => hard seek
+	DeadbandMS          int64         // |drift| below this => no correction
+	MinRate, MaxRate    float64       // playbackRate clamp for nudging
+	Kp                  float64       // proportional gain (per second of drift)
+	MaxOWDMS            int64         // cap on the one-way-delay estimate (spike guard)
+	SeekDebounce        time.Duration // host scrub settle window before committing a seek
+	DanmakuBurst        float64       // per-sender token-bucket capacity
+	DanmakuRefillPerSec float64       // per-sender token refill rate (tokens/second)
 }
 
 // DefaultConfig returns the spec defaults.
 func DefaultConfig() Config {
 	return Config{
-		HeartbeatInterval: 500 * time.Millisecond,
-		SeekThresholdMS:   1000,
-		DeadbandMS:        80,
-		MinRate:           0.92,
-		MaxRate:           1.08,
-		Kp:                0.2,
-		MaxOWDMS:          250,
-		SeekDebounce:      175 * time.Millisecond,
+		HeartbeatInterval:   500 * time.Millisecond,
+		SeekThresholdMS:     1000,
+		DeadbandMS:          80,
+		MinRate:             0.92,
+		MaxRate:             1.08,
+		Kp:                  0.2,
+		MaxOWDMS:            250,
+		SeekDebounce:        175 * time.Millisecond,
+		DanmakuBurst:        3,
+		DanmakuRefillPerSec: 1, // cooldown>=refill invariant: client cooldown is ~1/s
 	}
 }
 
