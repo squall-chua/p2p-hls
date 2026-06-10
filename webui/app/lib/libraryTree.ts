@@ -15,7 +15,7 @@ function treeDir(t: TreeTitle): string[] {
 // else starts at the top listing each root as a Folder.
 export function initialPath(titles: TreeTitle[]): string[] {
   const roots = new Set<string>()
-  for (const t of titles) roots.add(t.rootLabel)
+  for (const t of titles) if (t.rootLabel) roots.add(t.rootLabel)
   return roots.size === 1 ? [[...roots][0]!] : []
 }
 
