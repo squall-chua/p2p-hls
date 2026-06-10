@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planViewerActuation, hostMessageFor, formatDrift } from '../app/lib/actuator'
+import { planViewerActuation, hostMessageFor, formatDrift, parsePartyMessage } from '../app/lib/actuator'
 
 describe('planViewerActuation', () => {
   it('hard-seeks when action.seek', () => {
@@ -30,5 +30,20 @@ describe('formatDrift', () => {
     expect(formatDrift(200)).toBe('+0.2s')
     expect(formatDrift(-1500)).toBe('-1.5s')
     expect(formatDrift(0)).toBe('±0.0s')
+  })
+})
+
+describe('parsePartyMessage', () => {
+  it('parses a danmaku push', () => {
+    const m = parsePartyMessage(JSON.stringify({ type: 'danmaku', text: 'hi', sender: 'alice' }))
+    expect(m).toEqual({ kind: 'danmaku', danmaku: { text: 'hi', sender: 'alice' } })
+  })
+  it('parses a viewer action (no type field)', () => {
+    const m = parsePartyMessage(JSON.stringify({ play: true, seek: false, seekMs: 0, rate: 1, driftMs: 12 }))
+    expect(m?.kind).toBe('action')
+    if (m?.kind === 'action') expect(m.action.driftMs).toBe(12)
+  })
+  it('returns null on malformed JSON', () => {
+    expect(parsePartyMessage('not json')).toBeNull()
   })
 })

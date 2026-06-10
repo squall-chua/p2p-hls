@@ -22,3 +22,25 @@ export function formatDrift(driftMs: number): string {
   const sign = driftMs > 0 ? '+' : driftMs < 0 ? '-' : '±'
   return `${sign}${Math.abs(s).toFixed(1)}s`
 }
+
+export interface DanmakuMsg { text: string; sender?: string }
+export type PartyDown =
+  | { kind: 'action'; action: ViewerAction }
+  | { kind: 'danmaku'; danmaku: DanmakuMsg }
+
+// parsePartyMessage discriminates a Node->browser /party WS message: a `type:"danmaku"`
+// push vs the existing viewer Action. Returns null on malformed input.
+export function parsePartyMessage(raw: string): PartyDown | null {
+  let m: unknown
+  try {
+    m = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!m || typeof m !== 'object') return null
+  const obj = m as Record<string, unknown>
+  if (obj.type === 'danmaku') {
+    return { kind: 'danmaku', danmaku: { text: String(obj.text ?? ''), sender: obj.sender as string | undefined } }
+  }
+  return { kind: 'action', action: obj as unknown as ViewerAction }
+}
