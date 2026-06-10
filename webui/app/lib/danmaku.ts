@@ -16,7 +16,7 @@ export class LaneAllocator {
   }
   allocate(now: number): number {
     for (let i = 0; i < this.lanes; i++) {
-      if (this.freeAt[i] <= now) {
+      if ((this.freeAt[i] ?? 0) <= now) {
         this.freeAt[i] = now + this.gapMs
         return i
       }
