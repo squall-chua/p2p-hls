@@ -37,7 +37,7 @@ func hostLibrary(t *testing.T) *catalog.Service {
 	require.NoError(t, err)
 	t.Cleanup(func() { store.Close() })
 	require.NoError(t, library.NewScanner(store, stubProber{}, []string{root}).ScanOnce(context.Background()))
-	return catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityRestricted), catalog.NewRequests(), t.TempDir())
+	return catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityRestricted), catalog.NewRequests(), t.TempDir(), nil)
 }
 
 func TestNodeBrowseDeniedThenApprovedFlow(t *testing.T) {

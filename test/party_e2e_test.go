@@ -32,7 +32,7 @@ func TestWatchPartySyncEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	defer store.Close()
 	require.NoError(t, library.NewScanner(store, e2eProber{}, []string{root}).ScanOnce(ctx))
-	svc := catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityPublic), catalog.NewRequests(), t.TempDir())
+	svc := catalog.NewService(store, catalog.NewPolicy(catalog.VisibilityPublic), catalog.NewRequests(), t.TempDir(), nil)
 
 	idHost, _ := identity.Generate()
 	idViewer, _ := identity.Generate()
