@@ -115,6 +115,8 @@ func toTitleViews(metas []*peerv1.TitleMeta) []bridge.TitleView {
 			PartyLive:    m.GetPartyLive(),
 			PartyViewers: int(m.GetPartyViewers()),
 			Thumbnail:    thumb,
+			RelDir:       m.GetRelDir(),
+			RootLabel:    m.GetRootLabel(),
 		})
 	}
 	return out

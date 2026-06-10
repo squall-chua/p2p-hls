@@ -33,6 +33,8 @@ type TitleView struct {
 	PartyLive    bool   `json:"partyLive"`
 	PartyViewers int    `json:"partyViewers"`
 	Thumbnail    string `json:"thumbnail"` // data: URL for peer entries; empty for own library (UI builds the stream URL)
+	RelDir       string `json:"relDir"`    // Title's dir relative to its Shared-folder root; "" = root level
+	RootLabel    string `json:"rootLabel"` // disambiguated basename of that Shared folder
 }
 
 // CurrentPartyView is the node's active watch party for the "Now watching" panel.
