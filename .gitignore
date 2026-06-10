@@ -10,6 +10,6 @@ webui/node_modules/
 webui/.nuxt/
 webui/.output/
 internal/bridge/dist/*
-!internal/bridge/dist/index.html
+!internal/bridge/dist/.gitkeep
 host/
 viewer/

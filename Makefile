@@ -8,8 +8,8 @@ test:
 
 webui:
 	cd webui && npm ci && npx nuxt generate
-	rm -rf internal/bridge/dist
 	mkdir -p internal/bridge/dist
+	find internal/bridge/dist -mindepth 1 ! -name .gitkeep -delete
 	cp -r webui/.output/public/. internal/bridge/dist/
 
 webui-test:

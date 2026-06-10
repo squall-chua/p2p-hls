@@ -12,6 +12,19 @@ import (
 //go:embed all:dist
 var staticFS embed.FS
 
+// placeholderHTML is served when no built UI bundle is embedded — a fresh
+// checkout commits only dist/.gitkeep; run `make webui` to generate the real
+// bundle. It carries the bootstrap marker so token injection still works.
+const placeholderHTML = `<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>p2p-hls</title></head>
+  <body>
+    <div id="app">control plane up — UI bundle not built yet (run make webui)</div>
+    <!--__P2P_BOOTSTRAP__-->
+  </body>
+</html>
+`
+
 // SetBootstrap supplies the values injected into index.html for the SPA.
 func (b *Bridge) SetBootstrap(nodeID, name string) {
 	b.mu.Lock()
@@ -39,11 +52,10 @@ func (b *Bridge) handleStatic(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// fallback: index.html with bootstrap injected
+	// fallback: index.html with bootstrap injected (placeholder if unbuilt)
 	data, err := fs.ReadFile(sub, "index.html")
 	if err != nil {
-		http.Error(w, "no UI bundle", http.StatusInternalServerError)
-		return
+		data = []byte(placeholderHTML)
 	}
 	b.mu.Lock()
 	boot := fmt.Sprintf(`<script>window.__P2P__=%s</script>`, b.bootstrapJSON())
