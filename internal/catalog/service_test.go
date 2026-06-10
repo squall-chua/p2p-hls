@@ -122,7 +122,8 @@ func TestLibraryDoesNotEmbedThumbnail(t *testing.T) {
 }
 
 func TestLibraryReportsFolderForTitle(t *testing.T) {
-	root := t.TempDir()
+	root := filepath.Join(t.TempDir(), "MyMovies")
+	require.NoError(t, os.MkdirAll(root, 0o755))
 	store, err := library.OpenStore(filepath.Join(t.TempDir(), "i.db"))
 	require.NoError(t, err)
 	t.Cleanup(func() { store.Close() })
@@ -136,5 +137,5 @@ func TestLibraryReportsFolderForTitle(t *testing.T) {
 	titles, err := svc.Library()
 	require.NoError(t, err)
 	require.Equal(t, "Movies/Action", titles[0].GetRelDir())
-	require.Equal(t, filepath.Base(root), titles[0].GetRootLabel())
+	require.Equal(t, "MyMovies", titles[0].GetRootLabel())
 }

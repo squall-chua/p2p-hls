@@ -36,8 +36,12 @@ func (s *Service) SetPartyProvider(p PartyProvider) { s.party = p }
 // under, and the Shared folder roots (used to derive each Title's Folder).
 func NewService(store *library.Store, policy *Policy, reqs *Requests, cacheDir string, roots []string) *Service {
 	return &Service{
-		store: store, policy: policy, reqs: reqs, cacheDir: cacheDir,
-		roots: roots, rootLabels: buildRootLabels(roots),
+		store:      store,
+		policy:     policy,
+		reqs:       reqs,
+		cacheDir:   cacheDir,
+		roots:      roots,
+		rootLabels: buildRootLabels(roots),
 	}
 }
 
