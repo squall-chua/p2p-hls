@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { initialPath, childrenAt, type TreeTitle } from '~/lib/libraryTree'
+import { initialPath, childrenAt, titlesUnder, type TreeTitle } from '~/lib/libraryTree'
 
 interface BrowserTitle extends TreeTitle {
   contentId: string
@@ -43,6 +43,24 @@ function enter(folder: string) {
 function thumbOf(t: BrowserTitle): string {
   return props.thumbnailFor ? props.thumbnailFor(t) : (t.thumbnail ?? '')
 }
+
+// Each Folder card shows its item count and a mosaic of the first few thumbnails
+// of the Titles in its subtree (glyph fallback when none are available).
+const folderCards = computed(() =>
+  view.value.folders.map((name) => {
+    const under = titlesUnder(props.titles, [...path.value, name])
+    return {
+      name,
+      count: under.length,
+      previews: under.map(thumbOf).filter(Boolean).slice(0, 4),
+    }
+  }),
+)
+
+// A missing/broken preview thumbnail just reveals the tinted cell behind it.
+function onPreviewError(e: Event) {
+  ;(e.target as HTMLImageElement).style.visibility = 'hidden'
+}
 </script>
 
 <template>
@@ -69,16 +87,40 @@ function thumbOf(t: BrowserTitle): string {
     >
       <!-- folders first -->
       <button
-        v-for="folder in view.folders"
-        :key="'f:' + folder"
+        v-for="f in folderCards"
+        :key="'f:' + f.name"
         type="button"
-        class="group flex items-center gap-3 rounded-2xl border border-default bg-elevated p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-accented hover:shadow-lg hover:shadow-black/20"
-        @click="enter(folder)"
+        class="group flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-accented hover:shadow-lg hover:shadow-black/20"
+        @click="enter(f.name)"
       >
-        <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-          <UIcon name="i-lucide-folder" class="size-5 transition-transform duration-300 group-hover:scale-110" />
+        <div class="poster-sheen relative aspect-video overflow-hidden">
+          <!-- content mosaic of the folder's titles -->
+          <div v-if="f.previews.length" class="grid size-full grid-cols-2 grid-rows-2 gap-0.5">
+            <div v-for="i in 4" :key="i" class="relative overflow-hidden bg-primary/5">
+              <img
+                v-if="f.previews[i - 1]"
+                :src="f.previews[i - 1]"
+                alt=""
+                loading="lazy"
+                class="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                @error="onPreviewError"
+              >
+            </div>
+          </div>
+          <!-- glyph fallback when no thumbnails are available -->
+          <div v-else class="flex size-full items-center justify-center text-primary">
+            <UIcon name="i-lucide-folder" class="size-9 transition-transform duration-300 group-hover:scale-110" />
+          </div>
+          <!-- folder affordance, so a mosaic never reads as a single title -->
+          <span class="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
+            <UIcon name="i-lucide-folder" class="size-3" />
+            Folder
+          </span>
         </div>
-        <span class="truncate font-semibold text-highlighted" :title="folder">{{ folder }}</span>
+        <div class="flex flex-1 flex-col gap-1 p-3.5">
+          <p class="truncate font-semibold text-highlighted" :title="f.name">{{ f.name }}</p>
+          <p class="text-xs text-muted">{{ f.count }} {{ f.count === 1 ? 'item' : 'items' }}</p>
+        </div>
       </button>
 
       <!-- then titles -->

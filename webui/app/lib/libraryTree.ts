@@ -36,6 +36,14 @@ export function childrenAt<T extends TreeTitle>(titles: T[], path: string[]): { 
   }
 }
 
+// titlesUnder returns every Title in a Folder's subtree (at or below `path`),
+// sorted by displayTitle — used for a Folder card's item count and preview mosaic.
+export function titlesUnder<T extends TreeTitle>(titles: T[], path: string[]): T[] {
+  return titles
+    .filter((t) => startsWith(treeDir(t), path))
+    .sort((a, b) => a.displayTitle.localeCompare(b.displayTitle))
+}
+
 // startsWith reports whether dir has path as a prefix (dir at or below path).
 function startsWith(dir: string[], path: string[]): boolean {
   if (dir.length < path.length) return false
