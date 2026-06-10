@@ -32,7 +32,7 @@ during the grilling pass.
   renders **anonymously** (floating text only, no name shown). Sender identity is
   still carried on the wire (Host-stamped, anti-spoof) so a future "who said that"
   toggle is cheap, but nothing displays it now.
-- **Transport: route through the Host (star).** A new `PartyChat` message in the
+- **Transport: route through the Host (star).** A new `PartyDanmaku` message in the
   peer `Envelope` oneof. A Viewer sends its Danmaku to the Host; the Host fans it
   out to every Audience member. This mirrors how `PartyState` / `PartyAudience`
   already broadcast ([`party.go`](../../../internal/app/party.go) `broadcastAudience`,
@@ -54,13 +54,13 @@ during the grilling pass.
 ## Data flow
 
 ```
-Viewer types "lol" ──ws──▶ Viewer Node ──PartyChat(text)──▶ Host Node
+Viewer types "lol" ──ws──▶ Viewer Node ──PartyDanmaku(text)──▶ Host Node
                                                               │
                               Host: validate sender in        │
                               Audience, cap/trim text,        │
                               rate-bucket, stamp identity,    │
                               then fan out                    ▼
-        ┌──────────── PartyChat(text, sender) broadcast to EVERY Audience member ───────────┐
+        ┌──────────── PartyDanmaku(text, sender) broadcast to EVERY Audience member ───────────┐
         ▼                              ▼                              ▼                       ▼
    Host's own browser           Viewer A browser              Viewer B browser        originating Viewer
    (renders overlay)            (renders overlay)             (renders overlay)        (renders overlay)
@@ -70,10 +70,10 @@ Viewer types "lol" ──ws──▶ Viewer Node ──PartyChat(text)──▶ 
   `/party` WS → the coordinator broadcasts to all members and pushes to its own
   browser.
 - **Viewer originates:** the browser sends `{type:"danmaku", text}` → the
-  coordinator sends one `PartyChat{party_id, text}` to the Host. **No** local render.
-- **Host receives** a Viewer's `PartyChat`: validate + broadcast to all members +
+  coordinator sends one `PartyDanmaku{party_id, text}` to the Host. **No** local render.
+- **Host receives** a Viewer's `PartyDanmaku`: validate + broadcast to all members +
   push to own browser.
-- **Viewer receives** the Host's `PartyChat`: push to own browser.
+- **Viewer receives** the Host's `PartyDanmaku`: push to own browser.
 - **Solo** role has no party WS → no Danmaku (input hidden).
 
 ## Part A — Proto
@@ -82,11 +82,11 @@ Add to the `Envelope` oneof in
 [`proto/peer/v1/peer.proto`](../../../proto/peer/v1/peer.proto) (next free tag = 26):
 
 ```proto
-PartyChat party_chat = 26;
+PartyDanmaku party_danmaku = 26;
 
-// PartyChat carries one Danmaku. A Viewer→Host send fills only `text`; the Host
+// PartyDanmaku carries one Danmaku. A Viewer→Host send fills only `text`; the Host
 // overwrites sender_* with the true remote identity before fanning out.
-message PartyChat {
+message PartyDanmaku {
   string party_id       = 1;
   string sender_node_id = 2; // set by the Host on fan-out; ignored on inbound
   string sender_display = 3; // set by the Host on fan-out
@@ -103,10 +103,10 @@ feature simply has no `case` for the new oneof and ignores it.
 ## Part B — Peer session
 
 - [`peer.PartyHandler`](../../../internal/peer/party.go#L17) gains
-  `OnPartyChat(remote identity.NodeID, pc *peerv1.PartyChat)`.
+  `OnPartyDanmaku(remote identity.NodeID, pc *peerv1.PartyDanmaku)`.
 - The session read-loop dispatch in
   [`session.go`](../../../internal/peer/session.go) gains a `case` for
-  `*peerv1.Envelope_PartyChat` that calls the handler. (No reply: fire-and-forget.)
+  `*peerv1.Envelope_PartyDanmaku` that calls the handler. (No reply: fire-and-forget.)
 
 ## Part C — Node orchestration (`partyCoordinator`)
 
@@ -114,15 +114,15 @@ In [`internal/app/party.go`](../../../internal/app/party.go):
 
 - **`broadcastDanmaku(senderNode identity.NodeID, senderDisplay, text string)`** —
   the single fan-out point. Trims + rune-truncates `text` to `MaxDanmakuLen`, drops
-  if empty, builds the `PartyChat` Envelope, `sendTo` every Audience member, and
+  if empty, builds the `PartyDanmaku` Envelope, `sendTo` every Audience member, and
   pushes to the local browser sink. Called by both the Host-originate path and the
   Host-receive path.
-- **`OnPartyChat(remote, pc)` (PartyHandler):**
+- **`OnPartyDanmaku(remote, pc)` (PartyHandler):**
   - **Host role** (`pc.host != nil`): drop if `remote` is not a current Audience
     member (anti-spoof); otherwise apply the per-sender rate bucket; if admitted,
     `broadcastDanmaku(remote, audienceName(remote), pc.Text)`.
   - **Viewer role** (`remote == viewerHost`): push straight to the local browser
-    sink. Ignore `PartyChat` from anyone other than the current `viewerHost`.
+    sink. Ignore `PartyDanmaku` from anyone other than the current `viewerHost`.
 - **Sink registration.** At most one watch page is open, so the coordinator holds a
   single active-connection sink. `serveWS` registers it on connect, clears it on
   disconnect.
@@ -135,7 +135,7 @@ In [`internal/app/party.go`](../../../internal/app/party.go):
 - **WS read handling** ([`serveHostWS`](../../../internal/app/party.go#L473) /
   [`serveViewerWS`](../../../internal/app/party.go#L503)): branch on `m.Type ==
   "danmaku"`. Host → `broadcastDanmaku(self, selfDisplay, m.Text)`. Viewer → `sendTo`
-  the Host a `PartyChat{party_id, text}` (no local render). `playerMsg` gains a
+  the Host a `PartyDanmaku{party_id, text}` (no local render). `playerMsg` gains a
   `Text string json:"text"` field.
 
 Sender display uses whatever the Audience already stores (today the Node ID string —
@@ -201,6 +201,15 @@ Browser ↔ Node over `/party/{token}`
    regardless of arrival rate.
 3. **Client send cooldown.** ≈1/s, UX-only, immediate feedback.
 
+**Invariant (must hold):** the client cooldown is **≥ the bucket refill rate** and the
+bucket **burst ≥ 1**. This guarantees an honest client can never outrun its own bucket,
+so the Host always accepts an honest client's Danmaku — which matters because a Viewer
+renders its own Danmaku only on the Host's echo (see "Host is the single ordering
+point"). Were the cooldown looser than the refill, an honest Viewer's own comment could
+be silently dropped and never appear. The bucket therefore only ever bites a
+**misbehaving/hacked** client that ignores the cooldown, which is exactly the intent.
+The two limits must be tuned together, not independently.
+
 Scroll speed stays constant and readable throughout; flooding is bounded by rate and
 density, never by speeding up the scroll.
 
@@ -208,9 +217,9 @@ density, never by speeding up the scroll.
 
 | Unit | Responsibility | Depends on |
 |------|----------------|------------|
-| `peer.PartyHandler.OnPartyChat` | deliver inbound Danmaku to the coordinator | — |
+| `peer.PartyHandler.OnPartyDanmaku` | deliver inbound Danmaku to the coordinator | — |
 | `partyCoordinator.broadcastDanmaku` | cap/rate/stamp + fan out to Audience + local sink | party.CapText, DanmakuGate |
-| `partyCoordinator.OnPartyChat` | host validate+broadcast / viewer push-to-browser | broadcastDanmaku |
+| `partyCoordinator.OnPartyDanmaku` | host validate+broadcast / viewer push-to-browser | broadcastDanmaku |
 | WS writer goroutine | serialize all writes on one `/party` conn | — |
 | `party.CapText` | trim + rune-truncate to `MaxDanmakuLen` | — |
 | `party.DanmakuGate` | per-sender token bucket (Clock-driven) | party.Clock |
@@ -222,7 +231,7 @@ density, never by speeding up the scroll.
 ## Edge cases / known behavior
 
 - **Anti-spoof:** the Host stamps `sender_*` from the true remote identity and drops
-  any `PartyChat` from a remote not in the Audience. Viewers ignore `PartyChat` from
+  any `PartyDanmaku` from a remote not in the Audience. Viewers ignore `PartyDanmaku` from
   anyone but their current Host.
 - **Loss / ordering:** fire-and-forget, best-effort; the Host is the sole ordering
   point; a dropped Danmaku is simply lost (acceptable for ephemeral).
@@ -230,6 +239,10 @@ density, never by speeding up the scroll.
   a convenience mirror.
 - **Teardown:** party end / Viewer leave / WS close → overlay clears, sink
   unregisters, writer goroutine stops; nothing is persisted.
+- **Playback-independent:** Danmaku flow is wall-clock, not tied to `video.currentTime`
+  — it keeps scrolling while the video is paused, scrubbing, or buffering (consistent
+  with ephemeral/not-anchored; freezing it would imply an anchoring relationship we
+  rejected and would diverge a buffering Viewer's screen from everyone else's).
 - **Solo:** no party WS → no input, no overlay.
 - **One watch page at a time:** the single-sink assumption matches the current UI
   (one theater view). If multiple `/party` connections ever coexist, the sink would
@@ -241,10 +254,10 @@ density, never by speeding up the scroll.
   drops empty, and is byte-safe for CJK/emoji; `DanmakuGate` admits a burst then
   throttles and refills over a virtual clock.
 - **`internal/app`** ([`party_test.go`](../../../internal/app/party_test.go) style,
-  fake sender): Host `OnPartyChat` fans out to **all** members + local sink; Host
+  fake sender): Host `OnPartyDanmaku` fans out to **all** members + local sink; Host
   drops a non-Audience sender; Host drops an over-rate sender; Viewer accepts only
   from its Host; text trim/truncate/empty-drop. WS-loop test: a `{type:"danmaku"}`
-  browser message produces the right `PartyChat` (Host → all members; Viewer → Host
+  browser message produces the right `PartyDanmaku` (Host → all members; Viewer → Host
   only).
 - **webui** (vitest, `webui/test/`): `danmaku.ts` lane allocation, bounded-queue
   drop-oldest, and cleanup; `player.ts` discriminates Danmaku vs Action; input

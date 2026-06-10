@@ -356,6 +356,7 @@ Architecture Decision Records live in [`docs/adr/`](docs/adr):
 | [0004](docs/adr/0004-watch-party-sync-model.md) | Host-authoritative Watch Party sync model. |
 | [0005](docs/adr/0005-mesh-swarm-distribution.md) | Mesh Swarm Segment distribution. |
 | [0006](docs/adr/0006-browser-ui-control-plane.md) | Browser-UI control plane. |
+| [0007](docs/adr/0007-watch-party-danmaku.md) | Watch Party Danmaku: ephemeral, Host-relayed. |
 
 Per-slice design specs and implementation plans are under
 [`docs/superpowers/`](docs/superpowers).

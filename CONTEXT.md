@@ -79,3 +79,7 @@ _Avoid_: roster, room, members.
 **Swarm**:
 The Viewers of a Watch Party acting as a mesh that re-serves cached Segments to one another to share distribution load. Same membership as the Audience, seen as a distribution network rather than a sync group. The Host originates Segments to the Swarm but is not part of it.
 _Avoid_: cluster, mesh (alone), torrent.
+
+**Danmaku**:
+A short, ephemeral text reaction a Viewer or Host posts during a Watch Party, shown as floating text scrolling right-to-left over the video for the Host and the whole Audience. It is not stored and not tied to a playback position — it exists only as it flies across.
+_Avoid_: chat, comment, message, bullet.
