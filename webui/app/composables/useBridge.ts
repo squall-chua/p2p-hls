@@ -1,6 +1,7 @@
 export interface Bootstrap { token: string; nodeId: string; name: string }
 export interface Self { nodeId: string; displayName: string }
 export interface CurrentParty { active: boolean; role: string; host: string; contentId: string; title: string; viewers: number }
+export interface AccessRequest { nodeId: string; displayName: string; message: string }
 
 // readBootstrap resolves the session token from the injected global (prod) or the
 // URL query (dev). Pure + injectable for tests.
@@ -52,8 +53,9 @@ export function useBridge() {
     catalog: (id: string) => api<any[]>(`/api/peers/${id}/catalog`),
     requestAccess: (id: string, message: string) =>
       api<void>(`/api/peers/${id}/request-access`, { method: 'POST', body: JSON.stringify({ message }) }),
-    requests: () => api<string[]>('/api/requests'),
+    requests: () => api<AccessRequest[]>('/api/requests'),
     approve: (id: string) => api<void>(`/api/requests/${id}/approve`, { method: 'POST' }),
+    reject: (id: string) => api<void>(`/api/requests/${id}/reject`, { method: 'POST' }),
     startParty: (contentId: string) => api<{ partyId: string }>('/api/party/start', { method: 'POST', body: JSON.stringify({ contentId }) }),
     joinParty: (hostNodeId: string, contentId: string) => api<void>('/api/party/join', { method: 'POST', body: JSON.stringify({ hostNodeId, contentId }) }),
     leaveParty: () => api<void>('/api/party/leave', { method: 'POST' }),

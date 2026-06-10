@@ -19,6 +19,13 @@ type PeerView struct {
 	DisplayName string `json:"displayName"`
 	Online      bool   `json:"online"`
 }
+
+// RequestView is one pending library-access request shown to the owner.
+type RequestView struct {
+	NodeID      string `json:"nodeId"`
+	DisplayName string `json:"displayName"` // resolved from presence; "" when unknown
+	Message     string `json:"message"`     // optional message the requester attached
+}
 type TitleView struct {
 	ContentID    string `json:"contentId"`
 	DisplayTitle string `json:"displayTitle"`
@@ -47,8 +54,9 @@ type Control interface {
 	Library() ([]TitleView, error)
 	Catalog(ctx context.Context, peer string) ([]TitleView, error) // ErrDenied -> 403
 	RequestAccess(ctx context.Context, peer, message string) error
-	PendingRequests() []string
+	PendingRequests() []RequestView
 	Approve(peer string) error
+	Reject(peer string) error
 	StartParty(contentID string) string
 	JoinParty(ctx context.Context, host, contentID string) error
 	LeaveParty()
@@ -157,11 +165,17 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	case strings.HasPrefix(path, "requests/") && r.Method == http.MethodPost:
 		id, action, _ := splitPeerPath(path, "requests/")
-		if action != "approve" {
+		var err error
+		switch action {
+		case "approve":
+			err = c.Approve(id)
+		case "reject":
+			err = c.Reject(id)
+		default:
 			http.NotFound(w, r)
 			return
 		}
-		if err := c.Approve(id); err != nil {
+		if err != nil {
 			http.Error(w, err.Error(), statusForErr(err))
 			return
 		}

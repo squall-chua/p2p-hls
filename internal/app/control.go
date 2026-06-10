@@ -53,6 +53,8 @@ func (n *Node) Catalog(ctx context.Context, peerID string) ([]bridge.TitleView, 
 
 func (n *Node) Approve(peerID string) error { return n.ApproveAccess(identity.NodeID(peerID)) }
 
+func (n *Node) Reject(peerID string) error { return n.RejectAccess(identity.NodeID(peerID)) }
+
 func (n *Node) LeaveParty() { n.party.LeaveParty() }
 
 func (n *Node) EndParty(reason string) { n.party.EndParty(reason) }

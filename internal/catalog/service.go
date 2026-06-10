@@ -98,6 +98,12 @@ func (s *Service) Approve(node identity.NodeID) {
 	s.policy.AddAllow(node)
 }
 
+// Reject clears a pending request without granting access. It does not block the
+// Node, so it may request again later.
+func (s *Service) Reject(node identity.NodeID) {
+	s.reqs.Take(node)
+}
+
 func (s *Service) toMeta(t library.Title, includeThumb bool) *peerv1.TitleMeta {
 	m := &peerv1.TitleMeta{
 		ContentId:     t.ContentID,

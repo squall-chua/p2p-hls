@@ -18,8 +18,9 @@ type fakeControl struct {
 	library  []bridge.TitleView
 	catalog  []bridge.TitleView
 	catErr   error
-	pending  []string
+	pending  []bridge.RequestView
 	approved []string
+	rejected []string
 	reqMsg   string
 	started  string
 	joined   [2]string
@@ -38,8 +39,9 @@ func (f *fakeControl) RequestAccess(_ context.Context, _, msg string) error {
 	f.reqMsg = msg
 	return nil
 }
-func (f *fakeControl) PendingRequests() []string    { return f.pending }
+func (f *fakeControl) PendingRequests() []bridge.RequestView { return f.pending }
 func (f *fakeControl) Approve(p string) error       { f.approved = append(f.approved, p); return nil }
+func (f *fakeControl) Reject(p string) error        { f.rejected = append(f.rejected, p); return nil }
 func (f *fakeControl) StartParty(cid string) string { f.started = cid; return "pid:" + cid }
 func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error {
 	f.joined = [2]string{host, cid}
@@ -92,7 +94,7 @@ func TestAPIPresenceLibraryRequests(t *testing.T) {
 	c := &fakeControl{
 		presence: []bridge.PeerView{{NodeID: "n2", DisplayName: "Bob", Online: true}},
 		library:  []bridge.TitleView{{ContentID: "cid1", DisplayTitle: "Movie"}},
-		pending:  []string{"n3"},
+		pending:  []bridge.RequestView{{NodeID: "n3", DisplayName: "Carol", Message: "let me in"}},
 	}
 	_, base := newTestBridge(t, c)
 
@@ -109,9 +111,9 @@ func TestAPIPresenceLibraryRequests(t *testing.T) {
 		t.Fatalf("library %+v", lib)
 	}
 
-	var reqs []string
+	var reqs []bridge.RequestView
 	json.NewDecoder(apiGET(t, base, "/api/requests").Body).Decode(&reqs)
-	if len(reqs) != 1 || reqs[0] != "n3" {
+	if len(reqs) != 1 || reqs[0].NodeID != "n3" || reqs[0].DisplayName != "Carol" || reqs[0].Message != "let me in" {
 		t.Fatalf("requests %+v", reqs)
 	}
 }
@@ -152,6 +154,12 @@ func TestAPIRequestAccessAndApprove(t *testing.T) {
 	}
 	if len(c.approved) != 1 || c.approved[0] != "n3" {
 		t.Fatalf("approved %+v", c.approved)
+	}
+	if r := apiPOST(t, base, "/api/requests/n4/reject", ""); r.StatusCode != 200 {
+		t.Fatalf("reject status %d", r.StatusCode)
+	}
+	if len(c.rejected) != 1 || c.rejected[0] != "n4" {
+		t.Fatalf("rejected %+v", c.rejected)
 	}
 }
 

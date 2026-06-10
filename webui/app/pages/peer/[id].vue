@@ -17,6 +17,7 @@ const id = route.params.id as string
 
 const titles = ref<TitleView[]>([])
 const denied = ref(false)
+const requested = ref(false)
 const message = ref('')
 const loading = ref(true)
 const requesting = ref(false)
@@ -39,6 +40,7 @@ async function request() {
   requesting.value = true
   try {
     await bridge.requestAccess(id, message.value)
+    requested.value = true
     toast.add({ title: 'Request sent', icon: 'i-lucide-send', color: 'success' })
   } catch {
     toast.add({ title: 'Request failed', icon: 'i-lucide-triangle-alert', color: 'error' })
@@ -110,7 +112,21 @@ onMounted(load)
     <!-- restricted -->
     <div v-else-if="denied" class="mx-auto max-w-md">
       <div class="overflow-hidden rounded-2xl border border-default bg-elevated p-6 sm:p-8">
-        <div class="flex flex-col items-center gap-4 text-center">
+        <!-- pending approval (after a request has been sent) -->
+        <div v-if="requested" class="flex flex-col items-center gap-4 text-center">
+          <div class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+            <UIcon name="i-lucide-clock" class="size-6" />
+          </div>
+          <div class="space-y-1">
+            <p class="font-semibold text-highlighted">Request pending approval</p>
+            <p class="text-sm text-muted">
+              Waiting for this peer to approve your request. You'll get access to their library once they do.
+            </p>
+          </div>
+        </div>
+
+        <!-- request form -->
+        <div v-else class="flex flex-col items-center gap-4 text-center">
           <div class="flex size-14 items-center justify-center rounded-full bg-warning/10 text-warning ring-1 ring-warning/20">
             <UIcon name="i-lucide-lock" class="size-6" />
           </div>

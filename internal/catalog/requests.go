@@ -30,6 +30,23 @@ func (r *Requests) Add(node identity.NodeID, message string) {
 	}
 }
 
+// PendingRequest is one pending access request: the requester and their message.
+type PendingRequest struct {
+	Node    identity.NodeID
+	Message string
+}
+
+// Pending returns all pending requests with their messages (without removing them).
+func (r *Requests) Pending() []PendingRequest {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]PendingRequest, 0, len(r.pending))
+	for n, msg := range r.pending {
+		out = append(out, PendingRequest{Node: n, Message: msg})
+	}
+	return out
+}
+
 // List returns the Node IDs with pending requests.
 func (r *Requests) List() []identity.NodeID {
 	r.mu.Lock()

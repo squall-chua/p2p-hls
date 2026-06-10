@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
+	"github.com/squall-chua/p2p-hls/internal/bridge"
 	"github.com/squall-chua/p2p-hls/internal/catalog"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 	"github.com/squall-chua/p2p-hls/internal/party"
@@ -405,19 +407,28 @@ func (n *Node) RequestAccess(ctx context.Context, peerID, message string) error 
 	return sess.RequestAccess(ctx, message)
 }
 
-// PendingRequests lists Node IDs awaiting our approval.
-func (n *Node) PendingRequests() []string {
+// PendingRequests lists access requests awaiting our approval, resolving each
+// requester's display name from presence (falling back to the node ID).
+func (n *Node) PendingRequests() []bridge.RequestView {
 	n.mu.Lock()
 	svc := n.catalog
 	n.mu.Unlock()
 	if svc == nil {
 		return nil
 	}
-	ids := svc.Requests().List()
-	out := make([]string, len(ids))
-	for i, id := range ids {
-		out[i] = string(id)
+	names := make(map[string]string)
+	for _, p := range n.Presence() {
+		if p.DisplayName != "" {
+			names[p.NodeID] = p.DisplayName
+		}
 	}
+	pend := svc.Requests().Pending()
+	out := make([]bridge.RequestView, 0, len(pend))
+	for _, pr := range pend {
+		id := string(pr.Node)
+		out = append(out, bridge.RequestView{NodeID: id, DisplayName: names[id], Message: pr.Message})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].NodeID < out[j].NodeID })
 	return out
 }
 
@@ -434,6 +445,18 @@ func (n *Node) ApproveAccess(remote identity.NodeID) error {
 	if sess != nil {
 		return sess.SendAccessGranted()
 	}
+	return nil
+}
+
+// RejectAccess clears remote's pending request without granting access.
+func (n *Node) RejectAccess(remote identity.NodeID) error {
+	n.mu.Lock()
+	svc := n.catalog
+	n.mu.Unlock()
+	if svc == nil {
+		return fmt.Errorf("app: no catalog installed")
+	}
+	svc.Reject(remote)
 	return nil
 }
 

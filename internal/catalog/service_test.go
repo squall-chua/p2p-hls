@@ -66,6 +66,14 @@ func TestServiceRequestAccessRecorded(t *testing.T) {
 	require.Equal(t, []identity.NodeID{identity.NodeID("bob")}, reqs.List())
 }
 
+func TestServiceRejectClearsPendingWithoutAllowing(t *testing.T) {
+	svc, _, reqs, _ := newServiceWithTitle(t)
+	require.NoError(t, svc.RequestAccess(identity.NodeID("bob"), "pls"))
+	svc.Reject(identity.NodeID("bob"))
+	require.Empty(t, reqs.List(), "rejected request is cleared from pending")
+	require.False(t, svc.Allowed(identity.NodeID("bob")), "reject must not grant access")
+}
+
 func TestServiceGetMetadataDeniedDoesNotProbeExistence(t *testing.T) {
 	svc, _, _, _ := newServiceWithTitle(t)
 	// A denied peer gets ErrDenied for an EXISTING content id (cid-1), proving the

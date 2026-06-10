@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { useBridge, type CurrentParty } from '~/composables/useBridge'
+import { useBridge, type CurrentParty, type AccessRequest } from '~/composables/useBridge'
 import { useLiveData } from '~/composables/useLiveData'
 
 const bridge = useBridge()
 const me = ref(bridge.name || bridge.nodeId)
-const requests = ref<string[]>([])
+const requests = ref<AccessRequest[]>([])
 const library = ref<any[]>([])
 const watching = ref<CurrentParty | null>(null)
 
@@ -105,7 +105,7 @@ onBeforeUnmount(() => live?.stop())
         </h2>
         <UBadge color="warning" variant="soft" size="sm">{{ requests.length }}</UBadge>
       </div>
-      <RequestList :requests="requests" @approved="refetch('requests')" />
+      <RequestList :requests="requests" @resolved="refetch('requests')" />
     </section>
 
     <!-- library -->
