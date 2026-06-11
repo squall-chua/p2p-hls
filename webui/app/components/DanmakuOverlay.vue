@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { LaneAllocator, pushBounded } from '~/lib/danmaku'
+import { LaneAllocator, pushBounded, splitEmojiRuns, type TextRun } from '~/lib/danmaku'
 
-interface Flying { id: number; text: string; lane: number }
+interface Flying { id: number; runs: TextRun[]; lane: number }
 
 const flying = ref<Flying[]>([])
 let queue: { text: string }[] = []
@@ -22,7 +22,7 @@ function pump() {
   for (const item of queue) {
     const lane = lanes.allocate(now)
     if (lane < 0) { remaining.push(item); continue }
-    flying.value.push({ id: nextId++, text: item.text, lane })
+    flying.value.push({ id: nextId++, runs: splitEmojiRuns(item.text), lane })
   }
   queue = remaining
   if (queue.length && !pumping) {
@@ -46,7 +46,11 @@ defineExpose({ add })
       class="danmaku-item"
       :style="{ top: f.lane * 6 + 2 + '%' }"
       @animationend="onEnd(f.id)"
-    >{{ f.text }}</span>
+    ><span
+      v-for="(r, i) in f.runs"
+      :key="i"
+      :class="{ 'danmaku-emoji': r.emoji }"
+    >{{ r.text }}</span></span>
   </div>
 </template>
 
@@ -61,6 +65,11 @@ defineExpose({ add })
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.7);
   will-change: transform;
   animation: danmaku-fly 7s linear forwards; /* keep in sync with TRAVEL_MS in danmaku.ts */
+}
+/* Emoji runs render larger than the words so they read at a glance while flying. */
+.danmaku-emoji {
+  font-size: 1.5em;
+  vertical-align: -0.12em;
 }
 @keyframes danmaku-fly {
   from { transform: translateX(0); }
