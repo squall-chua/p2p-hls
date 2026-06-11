@@ -31,3 +31,25 @@ export function pushBounded<T>(queue: T[], item: T, max = QUEUE_MAX): T[] {
   next.push(item)
   return next
 }
+
+export interface TextRun { text: string; emoji: boolean }
+
+// Matches a maximal run of emoji: flag pairs (two regional indicators), or an
+// Extended_Pictographic base plus its VS16 selectors (\uFE0F), skin-tone modifiers,
+// and ZWJ-joined (\u200D) parts (so a family/profession sequence stays whole).
+const EMOJI_RUN = /(?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier}|\u200D\p{Extended_Pictographic})*)+/gu
+
+// splitEmojiRuns breaks text into consecutive emoji / non-emoji runs so the overlay
+// can render emoji larger than the surrounding words. Pure; no DOM.
+export function splitEmojiRuns(text: string): TextRun[] {
+  const runs: TextRun[] = []
+  let last = 0
+  for (const m of text.matchAll(EMOJI_RUN)) {
+    const start = m.index ?? 0
+    if (start > last) runs.push({ text: text.slice(last, start), emoji: false })
+    runs.push({ text: m[0], emoji: true })
+    last = start + m[0].length
+  }
+  if (last < text.length) runs.push({ text: text.slice(last), emoji: false })
+  return runs
+}
