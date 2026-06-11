@@ -27,6 +27,23 @@ func TestCapTextIsRuneSafeForCJK(t *testing.T) {
 	require.Equal(t, party.MaxDanmakuLen, utf8.RuneCountInString(out))
 }
 
+func TestCapTextDoesNotSplitGraphemeClusters(t *testing.T) {
+	// 99 ASCII + a 2-rune flag = 101 runes. A rune-boundary cut at 100 keeps a lone
+	// regional-indicator (half a flag); grapheme-aware capping drops the whole flag.
+	const flag = "🇯🇵" // two regional-indicator runes, one grapheme cluster
+	out := party.CapText(strings.Repeat("a", 99) + flag)
+	require.Equal(t, strings.Repeat("a", 99), out)
+	require.LessOrEqual(t, utf8.RuneCountInString(out), party.MaxDanmakuLen)
+}
+
+func TestCapTextKeepsWholeEmojiZWJSequence(t *testing.T) {
+	// 97 ASCII + a 7-rune ZWJ family = 104 runes. A rune cut at 100 would slice the
+	// family mid-sequence; grapheme-aware capping drops it whole.
+	const family = "👨‍👩‍👧‍👦" // four people joined by three ZWJs: 7 runes, one cluster
+	out := party.CapText(strings.Repeat("a", 97) + family)
+	require.Equal(t, strings.Repeat("a", 97), out)
+}
+
 func TestDanmakuGateBurstThenThrottleThenRefill(t *testing.T) {
 	clk := newFakeClock() // defined in viewer_test.go (package party_test)
 	cfg := party.DefaultConfig()

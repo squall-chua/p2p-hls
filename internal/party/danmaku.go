@@ -4,7 +4,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
+	"github.com/rivo/uniseg"
 	"github.com/squall-chua/p2p-hls/internal/identity"
 )
 
@@ -12,15 +14,26 @@ import (
 // treated fairly and never split mid-character.
 const MaxDanmakuLen = 100
 
-// CapText trims surrounding whitespace and truncates to MaxDanmakuLen runes on a
-// rune boundary. Returns "" for empty/whitespace-only input.
+// CapText trims surrounding whitespace and truncates to at most MaxDanmakuLen
+// runes, cutting only on grapheme-cluster boundaries so a multi-rune emoji (flag,
+// ZWJ sequence, skin-tone modifier) is kept whole or dropped, never split. Returns
+// "" for empty/whitespace-only input.
 func CapText(s string) string {
 	s = strings.TrimSpace(s)
-	r := []rune(s)
-	if len(r) > MaxDanmakuLen {
-		r = r[:MaxDanmakuLen]
+	if utf8.RuneCountInString(s) <= MaxDanmakuLen {
+		return s
 	}
-	return strings.TrimSpace(string(r))
+	var b strings.Builder
+	runes := 0
+	for g := uniseg.NewGraphemes(s); g.Next(); {
+		n := len(g.Runes())
+		if runes+n > MaxDanmakuLen {
+			break
+		}
+		runes += n
+		b.WriteString(g.Str())
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // DanmakuGate is a per-sender token bucket. Allow reports whether a sender may post
