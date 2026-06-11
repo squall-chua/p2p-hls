@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planViewerActuation, hostMessageFor, formatDrift, parsePartyMessage } from '../app/lib/actuator'
+import { planViewerActuation, hostMessageFor, formatDrift, formatTime, parsePartyMessage } from '../app/lib/actuator'
 
 describe('planViewerActuation', () => {
   it('hard-seeks when action.seek', () => {
@@ -30,6 +30,23 @@ describe('formatDrift', () => {
     expect(formatDrift(200)).toBe('+0.2s')
     expect(formatDrift(-1500)).toBe('-1.5s')
     expect(formatDrift(0)).toBe('±0.0s')
+  })
+})
+
+describe('formatTime', () => {
+  it('renders m:ss under an hour', () => {
+    expect(formatTime(0)).toBe('0:00')
+    expect(formatTime(5)).toBe('0:05')
+    expect(formatTime(75)).toBe('1:15')
+  })
+  it('renders h:mm:ss at or over an hour, zero-padding minutes', () => {
+    expect(formatTime(6300)).toBe('1:45:00')
+    expect(formatTime(3661)).toBe('1:01:01')
+  })
+  it('clamps non-finite or negative input to 0:00', () => {
+    expect(formatTime(NaN)).toBe('0:00')
+    expect(formatTime(Infinity)).toBe('0:00')
+    expect(formatTime(-3)).toBe('0:00')
   })
 })
 

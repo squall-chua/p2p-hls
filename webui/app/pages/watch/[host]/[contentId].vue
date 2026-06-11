@@ -2,7 +2,7 @@
 import { useBridge } from '~/composables/useBridge'
 import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
-import { formatDrift } from '~/lib/actuator'
+import { formatDrift, formatTime } from '~/lib/actuator'
 import { MAX_DANMAKU_LEN } from '~/lib/danmaku'
 import { expandShortcodes, matchShortcodes, activeShortcodeToken } from '~/lib/emoji'
 
@@ -19,6 +19,11 @@ const role = ref<Role>('solo')
 
 const video = ref<HTMLVideoElement>()
 const drift = ref(0)
+// viewer-only playback progress, fed from the local <video> via attachPlayer.
+const position = ref(0)
+const duration = ref(0)
+const hasDuration = computed(() => isFinite(duration.value) && duration.value > 0)
+const progressPct = computed(() => (hasDuration.value ? Math.min(100, (position.value / duration.value) * 100) : 0))
 const members = ref<any[]>([])
 let handle: ReturnType<typeof attachPlayer> | null = null
 let live: { start: () => void; stop: () => void } | null = null
@@ -106,6 +111,7 @@ onMounted(async () => {
     role: role.value,
     wsURL: bridge.partyWSURL(),
     onDrift: (d) => (drift.value = d),
+    onProgress: (pos, dur) => { position.value = pos; duration.value = dur },
     onDanmaku: (d) => overlay.value?.add(d),
   })
   if (role.value !== 'solo') {
@@ -159,6 +165,15 @@ const roleBadge = computed(() => ({
 
         <DanmakuOverlay ref="overlay" />
 
+        <!-- viewer-only ambient progress bar pinned to the player's bottom edge;
+             always visible for at-a-glance progress, thickening slightly on hover -->
+        <div
+          v-if="role === 'viewer' && hasDuration"
+          class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-0.5 bg-white/15 transition-[height] duration-200 group-hover:h-1"
+        >
+          <div class="h-full bg-primary" :style="{ width: progressPct + '%' }" />
+        </div>
+
         <!-- chrome overlaid on the player; revealed on hover (top bar removed) -->
         <div
           class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
@@ -195,6 +210,7 @@ const roleBadge = computed(() => ({
             >
               <span class="live-dot size-2 rounded-full bg-success" />
               <span class="font-medium text-white">Synced</span>
+              <span v-if="hasDuration" class="tabular-nums text-white/60">· {{ formatTime(position) }} / {{ formatTime(duration) }}</span>
               <span class="tabular-nums text-white/60">· {{ formatDrift(drift) }}</span>
             </span>
             <UButton
