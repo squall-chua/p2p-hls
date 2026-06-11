@@ -280,6 +280,27 @@ func TestHostRateLimitsDanmaku(t *testing.T) {
 	require.Len(t, cs.danmakusTo("alice"), 3) // burst of 3, rest throttled
 }
 
+func TestHostEmptyDanmakuDoesNotSpendRateToken(t *testing.T) {
+	cs := &captureSender{}
+	clk := &stepClock{t: time.Unix(1_700_000_000, 0)} // frozen => no refill
+	pc := newPartyCoordinator(cs, identity.NodeID("host"), clk, party.DefaultConfig())
+	pc.StartParty("cid")
+	defer pc.close()
+	pc.OnJoinParty("alice", "cid")
+
+	// Whitespace-only sends cap to "" and must be dropped before consuming a token.
+	for i := 0; i < 5; i++ {
+		pc.OnPartyDanmaku("alice", &peerv1.PartyDanmaku{Text: "   "})
+	}
+	require.Empty(t, cs.danmakusTo("alice"))
+
+	// The full burst is therefore still available for real text.
+	for i := 0; i < 3; i++ {
+		pc.OnPartyDanmaku("alice", &peerv1.PartyDanmaku{Text: "real"})
+	}
+	require.Len(t, cs.danmakusTo("alice"), 3)
+}
+
 func TestHandlePlayerDanmakuHostBroadcasts(t *testing.T) {
 	cs := &captureSender{}
 	pc := newPartyCoordinator(cs, identity.NodeID("host"), &stepClock{t: time.Unix(1_700_000_000, 0)}, party.DefaultConfig())

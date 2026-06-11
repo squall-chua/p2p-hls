@@ -346,10 +346,14 @@ func (pc *partyCoordinator) OnPartyDanmaku(remote identity.NodeID, d *peerv1.Par
 		if !ok {
 			return // anti-spoof: not in the Audience
 		}
+		text := party.CapText(d.GetText())
+		if text == "" {
+			return // empty/whitespace-only: drop before it can spend a rate token
+		}
 		if !pc.gate.Allow(remote, pc.clock.Now()) {
 			return // rate-limited
 		}
-		pc.broadcastDanmaku(h, remote, name, d.GetText())
+		pc.broadcastDanmaku(h, remote, name, text)
 		return
 	}
 	if v != nil && remote == vh {
