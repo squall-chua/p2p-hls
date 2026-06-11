@@ -45,9 +45,9 @@ func (f *fakeControl) RequestAccess(_ context.Context, _, msg string) error {
 	return nil
 }
 func (f *fakeControl) PendingRequests() []bridge.RequestView { return f.pending }
-func (f *fakeControl) Approve(p string) error       { f.approved = append(f.approved, p); return nil }
-func (f *fakeControl) Reject(p string) error        { f.rejected = append(f.rejected, p); return nil }
-func (f *fakeControl) StartParty(cid string) string { f.started = cid; return "pid:" + cid }
+func (f *fakeControl) Approve(p string) error                { f.approved = append(f.approved, p); return nil }
+func (f *fakeControl) Reject(p string) error                 { f.rejected = append(f.rejected, p); return nil }
+func (f *fakeControl) StartParty(cid string) string          { f.started = cid; return "pid:" + cid }
 func (f *fakeControl) JoinParty(_ context.Context, host, cid string) error {
 	f.joined = [2]string{host, cid}
 	return nil
