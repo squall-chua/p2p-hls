@@ -4,7 +4,7 @@ import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
 import { formatDrift } from '~/lib/actuator'
 import { MAX_DANMAKU_LEN } from '~/lib/danmaku'
-import { expandShortcodes } from '~/lib/emoji'
+import { expandShortcodes, matchShortcodes, activeShortcodeToken } from '~/lib/emoji'
 
 definePageMeta({ layout: 'theater' })
 
@@ -29,18 +29,61 @@ async function refetchAudience() {
 
 const overlay = ref<{ add: (d: { text: string; sender?: string }) => void }>()
 const draft = ref('')
+const danmakuInput = ref<HTMLInputElement>()
 let lastSent = 0
+
+// Emoji typeahead: matches for the :shortcode being typed, and the highlighted row.
+const suggestions = ref<Array<{ name: string; emoji: string }>>([])
+const activeIdx = ref(0)
+
+// Recompute the typeahead list from the token under the caret (empty if none).
+function updateSuggestions(text: string, caret: number) {
+  const tok = activeShortcodeToken(text, caret)
+  suggestions.value = tok ? matchShortcodes(tok.query) : []
+  activeIdx.value = 0
+}
 
 // Expand :shortcode: to emoji inline as the user types (Slack-style), keeping the
 // caret stable. Skipped mid-IME-composition so it can't corrupt CJK candidates.
 function onDraftInput(e: Event) {
   const el = e.target as HTMLInputElement
   const raw = el.value
-  if ((e as InputEvent).isComposing) { draft.value = raw; return }
+  if ((e as InputEvent).isComposing) { draft.value = raw; suggestions.value = []; return }
   const caret = el.selectionStart ?? raw.length
   const head = expandShortcodes(raw.slice(0, caret))
   draft.value = head + expandShortcodes(raw.slice(caret))
+  const newCaret = draft.value !== raw ? head.length : caret
   if (draft.value !== raw) nextTick(() => el.setSelectionRange(head.length, head.length))
+  updateSuggestions(draft.value, newCaret)
+}
+
+// Replace the :shortcode being typed with the chosen emoji and dismiss the list.
+function acceptSuggestion(idx = activeIdx.value) {
+  const s = suggestions.value[idx]
+  const el = danmakuInput.value
+  if (!s || !el) return
+  const caret = el.selectionStart ?? draft.value.length
+  const tok = activeShortcodeToken(draft.value, caret)
+  if (!tok) return
+  const before = draft.value.slice(0, tok.start)
+  draft.value = before + s.emoji + draft.value.slice(caret)
+  suggestions.value = []
+  const pos = before.length + s.emoji.length
+  nextTick(() => { el.focus(); el.setSelectionRange(pos, pos) })
+}
+
+// Keyboard nav for the typeahead; only swallows keys while the list is open, so a
+// plain Enter (list closed) still submits the danmaku.
+function onDanmakuKeydown(e: KeyboardEvent) {
+  if (e.isComposing || suggestions.value.length === 0) return
+  const n = suggestions.value.length
+  switch (e.key) {
+    case 'ArrowDown': activeIdx.value = (activeIdx.value + 1) % n; e.preventDefault(); break
+    case 'ArrowUp': activeIdx.value = (activeIdx.value - 1 + n) % n; e.preventDefault(); break
+    case 'Enter':
+    case 'Tab': acceptSuggestion(); e.preventDefault(); break
+    case 'Escape': suggestions.value = []; e.preventDefault(); break
+  }
 }
 
 function sendDanmaku() {
@@ -51,6 +94,7 @@ function sendDanmaku() {
   lastSent = now
   handle?.sendDanmaku(text)
   draft.value = ''
+  suggestions.value = []
 }
 
 onMounted(async () => {
@@ -182,17 +226,35 @@ const roleBadge = computed(() => ({
           class="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <form
-            class="pointer-events-auto flex w-[min(70%,32rem)] items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur"
+            class="pointer-events-auto relative flex w-[min(70%,32rem)] items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur"
             @submit.prevent="sendDanmaku"
           >
+            <!-- emoji typeahead: opens upward from the input pill -->
+            <ul
+              v-if="suggestions.length"
+              class="absolute bottom-full left-0 mb-2 max-h-56 w-64 overflow-auto rounded-xl bg-black/80 p-1 text-sm shadow-lg ring-1 ring-white/10 backdrop-blur"
+            >
+              <li
+                v-for="(s, i) in suggestions"
+                :key="s.name"
+                :class="['flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1', i === activeIdx ? 'bg-white/15' : 'hover:bg-white/10']"
+                @mousedown.prevent="acceptSuggestion(i)"
+              >
+                <span class="text-base leading-none">{{ s.emoji }}</span>
+                <span class="text-white/80">:{{ s.name }}:</span>
+              </li>
+            </ul>
             <UIcon name="i-lucide-message-circle" class="size-4 shrink-0 text-white/70" />
             <input
+              ref="danmakuInput"
               :value="draft"
               :maxlength="MAX_DANMAKU_LEN"
               placeholder="Send a danmaku…  try :fire:"
               aria-label="Send a danmaku"
               class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
               @input="onDraftInput"
+              @keydown="onDanmakuKeydown"
+              @blur="suggestions = []"
             />
             <button type="submit" class="shrink-0 text-sm font-medium text-primary">Send</button>
           </form>
