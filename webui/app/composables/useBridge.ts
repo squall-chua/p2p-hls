@@ -51,6 +51,7 @@ export function useBridge() {
     presence: () => api<any[]>('/api/presence'),
     library: () => api<any[]>('/api/library'),
     catalog: (id: string) => api<any[]>(`/api/peers/${id}/catalog`),
+    liveParties: (id: string) => api<{ contentId: string; viewers: number }[]>(`/api/peers/${id}/live-parties`),
     requestAccess: (id: string, message: string) =>
       api<void>(`/api/peers/${id}/request-access`, { method: 'POST', body: JSON.stringify({ message }) }),
     requests: () => api<AccessRequest[]>('/api/requests'),

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useBridge } from '~/composables/useBridge'
+import { applyLiveParties } from '~/lib/liveParties'
 
 interface TitleView {
   contentId: string
@@ -63,7 +64,32 @@ async function join(cid: string) {
   }
 }
 
-onMounted(load)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+let polling = false
+
+// While browsing an accessible library, poll the host's live-party status so a
+// party the host starts (or ends) flips the "Join" button without a manual reload.
+// Lightweight: viewer count only, no thumbnails (unlike a full catalog refetch).
+async function pollLiveParties() {
+  if (polling || denied.value) return
+  polling = true
+  try {
+    titles.value = applyLiveParties(titles.value, await bridge.liveParties(id))
+  } catch { /* transient: keep last-known status */ } finally {
+    polling = false
+  }
+}
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
+onMounted(async () => {
+  await load()
+  if (!denied.value) {
+    pollTimer = setInterval(() => { if (!document.hidden) pollLiveParties() }, 5000)
+  }
+})
+onBeforeUnmount(stopPolling)
 </script>
 
 <template>
