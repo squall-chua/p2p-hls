@@ -197,8 +197,7 @@ func TestCoordinatorViewerIngestsState(t *testing.T) {
 // stepClock is a frozen, manually-advanced clock for deterministic rate-gate tests.
 type stepClock struct{ t time.Time }
 
-func (c *stepClock) Now() time.Time          { return c.t }
-func (c *stepClock) advance(d time.Duration) { c.t = c.t.Add(d) }
+func (c *stepClock) Now() time.Time { return c.t }
 
 // captureSender records every Envelope sent, per destination node.
 type captureSender struct {
