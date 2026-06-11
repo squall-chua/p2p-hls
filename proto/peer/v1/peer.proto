@@ -34,6 +34,8 @@ message Envelope {
     SwarmHave swarm_have = 24;
     GetSwarmSegment get_swarm_segment = 25;
     PartyDanmaku party_danmaku = 26;
+    GetLiveParties get_live_parties = 27;
+    LiveParties live_parties = 28;
   }
 }
 
@@ -195,4 +197,16 @@ message PartyDanmaku {
   string sender_node_id = 2; // set by the Host on fan-out; ignored on inbound
   string sender_display = 3; // set by the Host on fan-out
   string text           = 4; // sender-provided, length-capped (runes) on the Host
+}
+
+// GetLiveParties asks a Host which of its Titles currently have a live Watch Party.
+// Access-gated like Browse; lets a browsing Viewer refresh "Join" availability
+// without re-fetching the whole Catalog (thumbnails and all).
+message GetLiveParties {}
+
+message LiveParties { repeated LivePartyMeta parties = 1; }
+
+message LivePartyMeta {
+  string content_id = 1;
+  int32 viewers = 2; // current Audience size (Viewers, excluding the Host)
 }

@@ -192,6 +192,8 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			s.handleBrowse(env.RequestId)
 		case *peerv1.Envelope_GetMetadata:
 			s.handleGetMetadata(env.RequestId, body.GetMetadata.GetContentId())
+		case *peerv1.Envelope_GetLiveParties:
+			s.handleGetLiveParties(env.RequestId)
 		case *peerv1.Envelope_RequestAccess:
 			s.handleRequestAccess(env.RequestId, body.RequestAccess.GetMessage())
 		case *peerv1.Envelope_AccessGranted:
@@ -250,7 +252,7 @@ func (s *Session) bindControl(dc *webrtc.DataChannel) {
 			s.handleGetSwarmSegment(env.RequestId, body.GetSwarmSegment)
 		case *peerv1.Envelope_Pong, *peerv1.Envelope_Catalog,
 			*peerv1.Envelope_TitleMeta, *peerv1.Envelope_Ack, *peerv1.Envelope_Playlist_,
-			*peerv1.Envelope_PartyWelcome:
+			*peerv1.Envelope_PartyWelcome, *peerv1.Envelope_LiveParties_:
 			s.deliver(env)
 		}
 	})
@@ -293,6 +295,7 @@ func (s *Session) Close() error { return s.pc.Close() }
 type RequestHandler interface {
 	Browse(remote identity.NodeID) ([]*peerv1.TitleMeta, error)
 	GetMetadata(remote identity.NodeID, contentID string) (*peerv1.TitleMeta, error)
+	LiveParties(remote identity.NodeID) ([]*peerv1.LivePartyMeta, error)
 	RequestAccess(remote identity.NodeID, message string) error
 }
 
@@ -376,6 +379,18 @@ func (s *Session) GetMetadata(ctx context.Context, contentID string) (*peerv1.Ti
 	return resp.GetTitleMeta(), nil
 }
 
+// LiveParties fetches the remote Host's currently-live Watch Parties (access-gated).
+func (s *Session) LiveParties(ctx context.Context) ([]*peerv1.LivePartyMeta, error) {
+	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_GetLiveParties{GetLiveParties: &peerv1.GetLiveParties{}}})
+	if err != nil {
+		return nil, err
+	}
+	if e := resp.GetError(); e != nil {
+		return nil, statusErr(e)
+	}
+	return resp.GetLiveParties_().GetParties(), nil
+}
+
 // RequestAccess asks the remote Host to allow this Node.
 func (s *Session) RequestAccess(ctx context.Context, message string) error {
 	resp, err := s.call(ctx, &peerv1.Envelope{Body: &peerv1.Envelope_RequestAccess{RequestAccess: &peerv1.RequestAccess{Message: message}}})
@@ -419,6 +434,20 @@ func (s *Session) handleGetMetadata(reqID uint64, contentID string) {
 		return
 	}
 	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_TitleMeta{TitleMeta: meta}})
+}
+
+func (s *Session) handleGetLiveParties(reqID uint64) {
+	h := s.currentHandler()
+	if h == nil {
+		_ = s.send(errEnvelope(reqID, ErrUnavailable))
+		return
+	}
+	parties, err := h.LiveParties(s.remote)
+	if err != nil {
+		_ = s.send(errEnvelope(reqID, err))
+		return
+	}
+	_ = s.send(&peerv1.Envelope{RequestId: reqID, Body: &peerv1.Envelope_LiveParties_{LiveParties_: &peerv1.LiveParties{Parties: parties}}})
 }
 
 func (s *Session) handleRequestAccess(reqID uint64, message string) {

@@ -51,6 +51,24 @@ func (n *Node) Catalog(ctx context.Context, peerID string) ([]bridge.TitleView, 
 	return toTitleViews(metas), nil
 }
 
+// LiveParties fetches the remote Host's currently-live Watch Parties for the peer
+// library page's lightweight poll (no thumbnails, unlike Catalog).
+func (n *Node) LiveParties(ctx context.Context, peerID string) ([]bridge.LivePartyView, error) {
+	sess, err := n.session(ctx, identity.NodeID(peerID))
+	if err != nil {
+		return nil, err
+	}
+	metas, err := sess.LiveParties(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]bridge.LivePartyView, 0, len(metas))
+	for _, m := range metas {
+		out = append(out, bridge.LivePartyView{ContentID: m.GetContentId(), Viewers: int(m.GetViewers())})
+	}
+	return out, nil
+}
+
 func (n *Node) Approve(peerID string) error { return n.ApproveAccess(identity.NodeID(peerID)) }
 
 func (n *Node) Reject(peerID string) error { return n.RejectAccess(identity.NodeID(peerID)) }

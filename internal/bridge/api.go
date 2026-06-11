@@ -37,6 +37,14 @@ type TitleView struct {
 	RootLabel    string `json:"rootLabel"` // disambiguated basename of that Shared folder
 }
 
+// LivePartyView is one live Watch Party on a peer's Library: which Title and its
+// current Viewer count. Returned by the lightweight live-parties poll so a browsing
+// Viewer can surface "Join" without re-fetching the whole Catalog.
+type LivePartyView struct {
+	ContentID string `json:"contentId"`
+	Viewers   int    `json:"viewers"`
+}
+
 // CurrentPartyView is the node's active watch party for the "Now watching" panel.
 // Active is false when the node is not in a party (other fields zero).
 type CurrentPartyView struct {
@@ -54,7 +62,8 @@ type Control interface {
 	Self() SelfView
 	Presence() []PeerView
 	Library() ([]TitleView, error)
-	Catalog(ctx context.Context, peer string) ([]TitleView, error) // ErrDenied -> 403
+	Catalog(ctx context.Context, peer string) ([]TitleView, error)         // ErrDenied -> 403
+	LiveParties(ctx context.Context, peer string) ([]LivePartyView, error) // ErrDenied -> 403
 	RequestAccess(ctx context.Context, peer, message string) error
 	PendingRequests() []RequestView
 	Approve(peer string) error
@@ -152,6 +161,13 @@ func (b *Bridge) handleAPI(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeJSON(w, cat)
+		case action == "live-parties" && r.Method == http.MethodGet:
+			parties, err := c.LiveParties(r.Context(), id)
+			if err != nil {
+				http.Error(w, err.Error(), statusForErr(err))
+				return
+			}
+			writeJSON(w, parties)
 		case action == "request-access" && r.Method == http.MethodPost:
 			var body struct {
 				Message string `json:"message"`

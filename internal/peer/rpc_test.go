@@ -14,10 +14,11 @@ import (
 
 // fakeHandler answers RPCs for the Host side of a test.
 type fakeHandler struct {
-	mu        sync.Mutex
-	allowed   bool
-	titles    []*peerv1.TitleMeta
-	requested chan string
+	mu          sync.Mutex
+	allowed     bool
+	titles      []*peerv1.TitleMeta
+	liveParties []*peerv1.LivePartyMeta
+	requested   chan string
 }
 
 // allow marks the handler allowed and sets the titles it will serve.
@@ -45,6 +46,14 @@ func (h *fakeHandler) GetMetadata(remote identity.NodeID, id string) (*peerv1.Ti
 		}
 	}
 	return nil, ErrNotFound
+}
+func (h *fakeHandler) LiveParties(remote identity.NodeID) ([]*peerv1.LivePartyMeta, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.allowed {
+		return nil, ErrDenied
+	}
+	return h.liveParties, nil
 }
 func (h *fakeHandler) RequestAccess(remote identity.NodeID, msg string) error {
 	h.requested <- msg
@@ -100,6 +109,25 @@ func TestGetMetadataNotFound(t *testing.T) {
 	h.allow()
 	_, err := viewer.GetMetadata(context.Background(), "missing")
 	require.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestLivePartiesDeniedThenAllowed(t *testing.T) {
+	viewer, _, h := connectPair(t)
+	ctx := context.Background()
+
+	_, err := viewer.LiveParties(ctx)
+	require.ErrorIs(t, err, ErrDenied)
+
+	h.mu.Lock()
+	h.allowed = true
+	h.liveParties = []*peerv1.LivePartyMeta{{ContentId: "cid1", Viewers: 4}}
+	h.mu.Unlock()
+
+	got, err := viewer.LiveParties(ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, "cid1", got[0].GetContentId())
+	require.Equal(t, int32(4), got[0].GetViewers())
 }
 
 func TestRequestAccessThenAccessGranted(t *testing.T) {

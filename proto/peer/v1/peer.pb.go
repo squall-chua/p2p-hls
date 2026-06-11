@@ -111,6 +111,8 @@ type Envelope struct {
 	//	*Envelope_SwarmHave
 	//	*Envelope_GetSwarmSegment
 	//	*Envelope_PartyDanmaku
+	//	*Envelope_GetLiveParties
+	//	*Envelope_LiveParties_
 	Body          isEnvelope_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -385,6 +387,24 @@ func (x *Envelope) GetPartyDanmaku() *PartyDanmaku {
 	return nil
 }
 
+func (x *Envelope) GetGetLiveParties() *GetLiveParties {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_GetLiveParties); ok {
+			return x.GetLiveParties
+		}
+	}
+	return nil
+}
+
+func (x *Envelope) GetLiveParties_() *LiveParties {
+	if x != nil {
+		if x, ok := x.Body.(*Envelope_LiveParties_); ok {
+			return x.LiveParties_
+		}
+	}
+	return nil
+}
+
 type isEnvelope_Body interface {
 	isEnvelope_Body()
 }
@@ -489,6 +509,14 @@ type Envelope_PartyDanmaku struct {
 	PartyDanmaku *PartyDanmaku `protobuf:"bytes,26,opt,name=party_danmaku,json=partyDanmaku,proto3,oneof"`
 }
 
+type Envelope_GetLiveParties struct {
+	GetLiveParties *GetLiveParties `protobuf:"bytes,27,opt,name=get_live_parties,json=getLiveParties,proto3,oneof"`
+}
+
+type Envelope_LiveParties_ struct {
+	LiveParties_ *LiveParties `protobuf:"bytes,28,opt,name=live_parties,json=liveParties,proto3,oneof"`
+}
+
 func (*Envelope_Handshake) isEnvelope_Body() {}
 
 func (*Envelope_Ping) isEnvelope_Body() {}
@@ -538,6 +566,10 @@ func (*Envelope_SwarmHave) isEnvelope_Body() {}
 func (*Envelope_GetSwarmSegment) isEnvelope_Body() {}
 
 func (*Envelope_PartyDanmaku) isEnvelope_Body() {}
+
+func (*Envelope_GetLiveParties) isEnvelope_Body() {}
+
+func (*Envelope_LiveParties_) isEnvelope_Body() {}
 
 // Handshake is exchanged once when the control channel opens.
 type Handshake struct {
@@ -2085,12 +2117,146 @@ func (x *PartyDanmaku) GetText() string {
 	return ""
 }
 
+// GetLiveParties asks a Host which of its Titles currently have a live Watch Party.
+// Access-gated like Browse; lets a browsing Viewer refresh "Join" availability
+// without re-fetching the whole Catalog (thumbnails and all).
+type GetLiveParties struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetLiveParties) Reset() {
+	*x = GetLiveParties{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetLiveParties) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetLiveParties) ProtoMessage() {}
+
+func (x *GetLiveParties) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetLiveParties.ProtoReflect.Descriptor instead.
+func (*GetLiveParties) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{28}
+}
+
+type LiveParties struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parties       []*LivePartyMeta       `protobuf:"bytes,1,rep,name=parties,proto3" json:"parties,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LiveParties) Reset() {
+	*x = LiveParties{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LiveParties) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LiveParties) ProtoMessage() {}
+
+func (x *LiveParties) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LiveParties.ProtoReflect.Descriptor instead.
+func (*LiveParties) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *LiveParties) GetParties() []*LivePartyMeta {
+	if x != nil {
+		return x.Parties
+	}
+	return nil
+}
+
+type LivePartyMeta struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     string                 `protobuf:"bytes,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	Viewers       int32                  `protobuf:"varint,2,opt,name=viewers,proto3" json:"viewers,omitempty"` // current Audience size (Viewers, excluding the Host)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LivePartyMeta) Reset() {
+	*x = LivePartyMeta{}
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LivePartyMeta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LivePartyMeta) ProtoMessage() {}
+
+func (x *LivePartyMeta) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_peer_v1_peer_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LivePartyMeta.ProtoReflect.Descriptor instead.
+func (*LivePartyMeta) Descriptor() ([]byte, []int) {
+	return file_proto_peer_v1_peer_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *LivePartyMeta) GetContentId() string {
+	if x != nil {
+		return x.ContentId
+	}
+	return ""
+}
+
+func (x *LivePartyMeta) GetViewers() int32 {
+	if x != nil {
+		return x.Viewers
+	}
+	return 0
+}
+
 var File_proto_peer_v1_peer_proto protoreflect.FileDescriptor
 
 const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xeb\n" +
-	"\n" +
+	"\x18proto/peer/v1/peer.proto\x12\apeer.v1\"\xeb\v\n" +
 	"\bEnvelope\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x04R\trequestId\x122\n" +
@@ -2126,7 +2292,9 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\n" +
 	"swarm_have\x18\x18 \x01(\v2\x12.peer.v1.SwarmHaveH\x00R\tswarmHave\x12F\n" +
 	"\x11get_swarm_segment\x18\x19 \x01(\v2\x18.peer.v1.GetSwarmSegmentH\x00R\x0fgetSwarmSegment\x12<\n" +
-	"\rparty_danmaku\x18\x1a \x01(\v2\x15.peer.v1.PartyDanmakuH\x00R\fpartyDanmakuB\x06\n" +
+	"\rparty_danmaku\x18\x1a \x01(\v2\x15.peer.v1.PartyDanmakuH\x00R\fpartyDanmaku\x12C\n" +
+	"\x10get_live_parties\x18\x1b \x01(\v2\x17.peer.v1.GetLivePartiesH\x00R\x0egetLiveParties\x129\n" +
+	"\flive_parties\x18\x1c \x01(\v2\x14.peer.v1.LivePartiesH\x00R\vlivePartiesB\x06\n" +
 	"\x04body\"Z\n" +
 	"\tHandshake\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\rR\x0fprotocolVersion\x12\"\n" +
@@ -2250,7 +2418,14 @@ const file_proto_peer_v1_peer_proto_rawDesc = "" +
 	"\bparty_id\x18\x01 \x01(\tR\apartyId\x12$\n" +
 	"\x0esender_node_id\x18\x02 \x01(\tR\fsenderNodeId\x12%\n" +
 	"\x0esender_display\x18\x03 \x01(\tR\rsenderDisplay\x12\x12\n" +
-	"\x04text\x18\x04 \x01(\tR\x04textB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
+	"\x04text\x18\x04 \x01(\tR\x04text\"\x10\n" +
+	"\x0eGetLiveParties\"?\n" +
+	"\vLiveParties\x120\n" +
+	"\aparties\x18\x01 \x03(\v2\x16.peer.v1.LivePartyMetaR\aparties\"H\n" +
+	"\rLivePartyMeta\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\tR\tcontentId\x12\x18\n" +
+	"\aviewers\x18\x02 \x01(\x05R\aviewersB5Z3github.com/squall-chua/p2p-hls/proto/peer/v1;peerv1b\x06proto3"
 
 var (
 	file_proto_peer_v1_peer_proto_rawDescOnce sync.Once
@@ -2265,7 +2440,7 @@ func file_proto_peer_v1_peer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_peer_v1_peer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_proto_peer_v1_peer_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(Error_Status)(0),       // 0: peer.v1.Error.Status
 	(*Envelope)(nil),        // 1: peer.v1.Envelope
@@ -2296,6 +2471,9 @@ var file_proto_peer_v1_peer_proto_goTypes = []any{
 	(*SwarmHave)(nil),       // 26: peer.v1.SwarmHave
 	(*GetSwarmSegment)(nil), // 27: peer.v1.GetSwarmSegment
 	(*PartyDanmaku)(nil),    // 28: peer.v1.PartyDanmaku
+	(*GetLiveParties)(nil),  // 29: peer.v1.GetLiveParties
+	(*LiveParties)(nil),     // 30: peer.v1.LiveParties
+	(*LivePartyMeta)(nil),   // 31: peer.v1.LivePartyMeta
 }
 var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	2,  // 0: peer.v1.Envelope.handshake:type_name -> peer.v1.Handshake
@@ -2323,17 +2501,20 @@ var file_proto_peer_v1_peer_proto_depIdxs = []int32{
 	26, // 22: peer.v1.Envelope.swarm_have:type_name -> peer.v1.SwarmHave
 	27, // 23: peer.v1.Envelope.get_swarm_segment:type_name -> peer.v1.GetSwarmSegment
 	28, // 24: peer.v1.Envelope.party_danmaku:type_name -> peer.v1.PartyDanmaku
-	8,  // 25: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
-	9,  // 26: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
-	0,  // 27: peer.v1.Error.status:type_name -> peer.v1.Error.Status
-	21, // 28: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
-	22, // 29: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
-	23, // 30: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
-	31, // [31:31] is the sub-list for method output_type
-	31, // [31:31] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	29, // 25: peer.v1.Envelope.get_live_parties:type_name -> peer.v1.GetLiveParties
+	30, // 26: peer.v1.Envelope.live_parties:type_name -> peer.v1.LiveParties
+	8,  // 27: peer.v1.Catalog.titles:type_name -> peer.v1.TitleMeta
+	9,  // 28: peer.v1.TitleMeta.subtitles:type_name -> peer.v1.SubtitleTrack
+	0,  // 29: peer.v1.Error.status:type_name -> peer.v1.Error.Status
+	21, // 30: peer.v1.PartyWelcome.initial:type_name -> peer.v1.PartyState
+	22, // 31: peer.v1.PartyWelcome.audience:type_name -> peer.v1.PartyAudience
+	23, // 32: peer.v1.PartyAudience.members:type_name -> peer.v1.AudienceMember
+	31, // 33: peer.v1.LiveParties.parties:type_name -> peer.v1.LivePartyMeta
+	34, // [34:34] is the sub-list for method output_type
+	34, // [34:34] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_proto_peer_v1_peer_proto_init() }
@@ -2367,6 +2548,8 @@ func file_proto_peer_v1_peer_proto_init() {
 		(*Envelope_SwarmHave)(nil),
 		(*Envelope_GetSwarmSegment)(nil),
 		(*Envelope_PartyDanmaku)(nil),
+		(*Envelope_GetLiveParties)(nil),
+		(*Envelope_LiveParties_)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2374,7 +2557,7 @@ func file_proto_peer_v1_peer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_peer_v1_peer_proto_rawDesc), len(file_proto_peer_v1_peer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   28,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -89,6 +89,29 @@ func (s *Service) GetMetadata(remote identity.NodeID, contentID string) (*peerv1
 	return s.toMeta(t, false), nil
 }
 
+// LiveParties lists the Titles that currently have a live Watch Party, for an
+// access-granted remote (same gate as Browse). Reuses the PartyProvider so it
+// stays consistent with Browse's per-Title annotation; a nil provider yields none.
+func (s *Service) LiveParties(remote identity.NodeID) ([]*peerv1.LivePartyMeta, error) {
+	if !s.policy.Allowed(remote) {
+		return nil, peer.ErrDenied
+	}
+	if s.party == nil {
+		return nil, nil
+	}
+	titles, err := s.store.All()
+	if err != nil {
+		return nil, err
+	}
+	var out []*peerv1.LivePartyMeta
+	for _, t := range titles {
+		if live, viewers := s.party.LiveParty(t.ContentID); live {
+			out = append(out, &peerv1.LivePartyMeta{ContentId: t.ContentID, Viewers: int32(viewers)})
+		}
+	}
+	return out, nil
+}
+
 // RequestAccess records a pending access request from remote.
 func (s *Service) RequestAccess(remote identity.NodeID, message string) error {
 	s.reqs.Add(remote, message)

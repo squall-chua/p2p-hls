@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/squall-chua/p2p-hls/internal/identity"
+	"github.com/squall-chua/p2p-hls/internal/peer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,4 +43,34 @@ func TestBrowseNoProviderLeavesPartyFalse(t *testing.T) {
 	titles, err := svc.Browse(identity.NodeID("bob"))
 	require.NoError(t, err)
 	require.False(t, titles[0].GetPartyLive())
+}
+
+func TestLivePartiesReturnsLiveTitleForAllowed(t *testing.T) {
+	svc, policy, _, _ := newServiceWithTitle(t)
+	policy.AddAllow(identity.NodeID("bob"))
+	svc.SetPartyProvider(fakeParty{live: true, viewers: 3, cid: e2eTitleCID})
+
+	parties, err := svc.LiveParties(identity.NodeID("bob"))
+	require.NoError(t, err)
+	require.Len(t, parties, 1)
+	require.Equal(t, e2eTitleCID, parties[0].GetContentId())
+	require.Equal(t, int32(3), parties[0].GetViewers())
+}
+
+func TestLivePartiesDeniedForDisallowed(t *testing.T) {
+	svc, _, _, _ := newServiceWithTitle(t)
+	svc.SetPartyProvider(fakeParty{live: true, viewers: 3, cid: e2eTitleCID})
+
+	_, err := svc.LiveParties(identity.NodeID("mallory"))
+	require.ErrorIs(t, err, peer.ErrDenied)
+}
+
+func TestLivePartiesEmptyWhenNoneLive(t *testing.T) {
+	svc, policy, _, _ := newServiceWithTitle(t)
+	policy.AddAllow(identity.NodeID("bob"))
+	svc.SetPartyProvider(fakeParty{live: false, cid: e2eTitleCID})
+
+	parties, err := svc.LiveParties(identity.NodeID("bob"))
+	require.NoError(t, err)
+	require.Empty(t, parties)
 }

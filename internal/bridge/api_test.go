@@ -18,6 +18,8 @@ type fakeControl struct {
 	library  []bridge.TitleView
 	catalog  []bridge.TitleView
 	catErr   error
+	parties  []bridge.LivePartyView
+	partyErr error
 	pending  []bridge.RequestView
 	approved []string
 	rejected []string
@@ -34,6 +36,9 @@ func (f *fakeControl) Presence() []bridge.PeerView          { return f.presence 
 func (f *fakeControl) Library() ([]bridge.TitleView, error) { return f.library, nil }
 func (f *fakeControl) Catalog(_ context.Context, _ string) ([]bridge.TitleView, error) {
 	return f.catalog, f.catErr
+}
+func (f *fakeControl) LiveParties(_ context.Context, _ string) ([]bridge.LivePartyView, error) {
+	return f.parties, f.partyErr
 }
 func (f *fakeControl) RequestAccess(_ context.Context, _, msg string) error {
 	f.reqMsg = msg
@@ -134,6 +139,29 @@ func TestAPICatalogDeniedIs403(t *testing.T) {
 	c := &fakeControl{catErr: peer.ErrDenied}
 	_, base := newTestBridge(t, c)
 	resp := apiGET(t, base, "/api/peers/n9/catalog")
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestAPILivePartiesReturnsJSON(t *testing.T) {
+	c := &fakeControl{parties: []bridge.LivePartyView{{ContentID: "cid-1", Viewers: 2}}}
+	_, base := newTestBridge(t, c)
+	resp := apiGET(t, base, "/api/peers/n9/live-parties")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var got []bridge.LivePartyView
+	json.NewDecoder(resp.Body).Decode(&got)
+	if len(got) != 1 || got[0].ContentID != "cid-1" || got[0].Viewers != 2 {
+		t.Fatalf("parties %+v", got)
+	}
+}
+
+func TestAPILivePartiesDeniedIs403(t *testing.T) {
+	c := &fakeControl{partyErr: peer.ErrDenied}
+	_, base := newTestBridge(t, c)
+	resp := apiGET(t, base, "/api/peers/n9/live-parties")
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("want 403, got %d", resp.StatusCode)
 	}
