@@ -44,7 +44,7 @@ defineExpose({ add })
       v-for="f in flying"
       :key="f.id"
       class="danmaku-item"
-      :style="{ top: f.lane * 6 + 5 + '%' }"
+      :style="{ top: f.lane * 6 + 2 + '%' }"
       @animationend="onEnd(f.id)"
     >{{ f.text }}</span>
   </div>
