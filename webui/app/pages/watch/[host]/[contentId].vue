@@ -4,6 +4,7 @@ import { useLiveData } from '~/composables/useLiveData'
 import { attachPlayer, type Role } from '~/lib/player'
 import { formatDrift } from '~/lib/actuator'
 import { MAX_DANMAKU_LEN } from '~/lib/danmaku'
+import { expandShortcodes } from '~/lib/emoji'
 
 definePageMeta({ layout: 'theater' })
 
@@ -29,6 +30,18 @@ async function refetchAudience() {
 const overlay = ref<{ add: (d: { text: string; sender?: string }) => void }>()
 const draft = ref('')
 let lastSent = 0
+
+// Expand :shortcode: to emoji inline as the user types (Slack-style), keeping the
+// caret stable. Skipped mid-IME-composition so it can't corrupt CJK candidates.
+function onDraftInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const raw = el.value
+  if ((e as InputEvent).isComposing) { draft.value = raw; return }
+  const caret = el.selectionStart ?? raw.length
+  const head = expandShortcodes(raw.slice(0, caret))
+  draft.value = head + expandShortcodes(raw.slice(caret))
+  if (draft.value !== raw) nextTick(() => el.setSelectionRange(head.length, head.length))
+}
 
 function sendDanmaku() {
   const text = draft.value.trim()
@@ -174,11 +187,12 @@ const roleBadge = computed(() => ({
           >
             <UIcon name="i-lucide-message-circle" class="size-4 shrink-0 text-white/70" />
             <input
-              v-model="draft"
+              :value="draft"
               :maxlength="MAX_DANMAKU_LEN"
-              placeholder="Send a danmaku…"
+              placeholder="Send a danmaku…  try :fire:"
               aria-label="Send a danmaku"
               class="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
+              @input="onDraftInput"
             />
             <button type="submit" class="shrink-0 text-sm font-medium text-primary">Send</button>
           </form>
