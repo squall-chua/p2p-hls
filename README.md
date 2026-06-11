@@ -69,6 +69,7 @@ The feature set was built in vertical slices, each backed by an ADR (see
 - **Watch Party sync** — host-authoritative play/pause/seek, Viewers follow.
 - **Mesh Swarm** — Viewers re-serve verified, cached Segments to each other (BLAKE3 integrity).
 - **Browser UI control plane** — the Nuxt SPA + REST/SSE bridge.
+- **Watch Party Danmaku** — ephemeral, Host-relayed scrolling comments (emoji-aware), rate-limited per sender.
 
 ---
 
@@ -267,14 +268,20 @@ From a Node's browser UI:
    Node ID.
 2. **Browse a Peer** — open a Peer to request its **Catalog**. If the Host is `public`, you see
    its Titles immediately; if `restricted`, you **request access** and the Host approves you from
-   their own UI (their *Requests* panel).
+   their own UI (their *Requests* panel). While you're browsing a Peer, the page polls the Host's
+   live Watch Parties, so a **Join** button appears on a Title as soon as the Host starts a party
+   on it — no manual refresh.
 3. **Stream a Title** — pick a Title to play it as HLS, pulled directly from the Host over
    WebRTC. Text subtitle tracks are converted to WebVTT on the fly (image-based subtitle
    tracks aren't rendered yet).
 4. **Watch Party** — a Host **starts a party** on a Title; Viewers **join** it. The Host's
-   playback (play / pause / seek) is authoritative and all Viewers stay hard-synced. While a
-   party is live, Viewers form a **Swarm**: each caches Segments and re-serves them to other
-   Viewers (integrity-checked against Host-published BLAKE3 hashes), offloading the Host.
+   playback (play / pause / seek) is authoritative and all Viewers stay hard-synced, and Viewers
+   see the Host's playback **progress** in real time. While a party is live, Viewers form a
+   **Swarm**: each caches Segments and re-serves them to other Viewers (integrity-checked against
+   Host-published BLAKE3 hashes), offloading the Host.
+5. **Danmaku** — during a party, Viewers fire ephemeral **Danmaku**: scrolling on-screen comments
+   with emoji (type `:shortcode:` for typeahead). The Host relays each comment to everyone,
+   length-capped on grapheme boundaries and rate-limited per sender. Danmaku is never persisted.
 
 The UI updates live via Server-Sent Events (Presence changes, access requests, audience changes,
 party-ended, …).
@@ -293,9 +300,11 @@ for scripting/automation.
 | `GET /api/presence` | Online Peers. |
 | `GET /api/library` | This Node's own shared Titles. |
 | `GET /api/peers/{id}/catalog` | A Peer's access-filtered Catalog. |
+| `GET /api/peers/{id}/live-parties` | A Peer's currently-live Watch Parties (Title + Viewer count) — the lightweight poll behind the auto-appearing **Join**. |
 | `POST /api/peers/{id}/request-access` | Ask a Host for access (`{"message": "..."}`). |
 | `GET /api/requests` | Pending inbound access requests. |
 | `POST /api/requests/{id}/approve` | Approve a pending request. |
+| `POST /api/requests/{id}/reject` | Reject a pending request. |
 | `GET /api/party/current` | The party this Node is hosting or viewing, if any. |
 | `GET /api/party/audience` | Current Audience. |
 | `POST /api/party/start` | Start a Watch Party (`{"contentId": "..."}`). |
@@ -304,7 +313,7 @@ for scripting/automation.
 | `POST /api/party/end` | End the party being hosted. |
 | `GET /api/events` | Server-Sent Events stream of live updates. |
 | `GET /s/{token}/{host}/{contentId}/{name}` | HLS playlists/segments proxied from a Host. |
-| `GET /party/{token}` | Player ↔ sync-engine WebSocket (used by the SPA). |
+| `GET /party/{token}` | Player ↔ sync-engine WebSocket (used by the SPA); also carries Danmaku in both directions. |
 
 ---
 
