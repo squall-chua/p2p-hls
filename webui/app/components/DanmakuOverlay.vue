@@ -44,7 +44,7 @@ defineExpose({ add })
       v-for="f in flying"
       :key="f.id"
       class="danmaku-item"
-      :style="{ top: f.lane * 6 + '%' }"
+      :style="{ top: f.lane * 6 + 8 + '%' }"
       @animationend="onEnd(f.id)"
     >{{ f.text }}</span>
   </div>
@@ -57,6 +57,7 @@ defineExpose({ add })
   white-space: nowrap;
   color: #fff;
   font-weight: 600;
+  font-size: 1.25rem;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.7);
   will-change: transform;
   animation: danmaku-fly 7s linear forwards; /* keep in sync with TRAVEL_MS in danmaku.ts */
@@ -64,5 +65,12 @@ defineExpose({ add })
 @keyframes danmaku-fly {
   from { transform: translateX(0); }
   to { transform: translateX(calc(-100vw - 100%)); }
+}
+
+/* A Danmaku's scroll IS the content, not decoration, so exempt it from the global
+   reduced-motion animation clamp (main.css) that would otherwise zero its duration
+   and make it flash off-screen instantly. */
+@media (prefers-reduced-motion: reduce) {
+  .danmaku-item { animation-duration: 7s !important; }
 }
 </style>
