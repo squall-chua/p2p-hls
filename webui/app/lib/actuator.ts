@@ -23,6 +23,18 @@ export function formatDrift(driftMs: number): string {
   return `${sign}${Math.abs(s).toFixed(1)}s`
 }
 
+// formatTime renders a clock-style duration: "m:ss" under an hour, "h:mm:ss" at or
+// above one hour. Non-finite or negative input clamps to "0:00".
+export function formatTime(seconds: number): string {
+  const t = isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0
+  const h = Math.floor(t / 3600)
+  const m = Math.floor(t / 60) % 60
+  const s = t % 60
+  const ss = String(s).padStart(2, '0')
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${ss}`
+  return `${m}:${ss}`
+}
+
 export interface DanmakuMsg { text: string; sender?: string }
 export type PartyDown =
   | { kind: 'action'; action: ViewerAction }

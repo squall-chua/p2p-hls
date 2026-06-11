@@ -11,6 +11,7 @@ export function attachPlayer(opts: {
   role: Role
   wsURL: string
   onDrift?: (driftMs: number) => void
+  onProgress?: (positionSec: number, durationSec: number) => void
   onDanmaku?: (d: { text: string; sender?: string }) => void
 }) {
   let hls: Hls | null = null
@@ -47,6 +48,7 @@ export function attachPlayer(opts: {
     const report = setInterval(() => {
       if (ws.readyState === ws.OPEN)
         ws.send(JSON.stringify({ type: 'report', posMs: Math.round(opts.video.currentTime * 1000), playing: !opts.video.paused }))
+      opts.onProgress?.(opts.video.currentTime, opts.video.duration)
     }, 500)
     ws.onmessage = (m) => {
       const msg = parsePartyMessage(m.data)
